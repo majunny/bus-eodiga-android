@@ -89,6 +89,7 @@ fun Bus어디가App() {
     var stopsLoading by remember { mutableStateOf(false) }
     var stopsError by remember { mutableStateOf<String?>(null) }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
+    var liveRouteCoordinates by remember { mutableStateOf<List<GeoPointDto>>(emptyList()) }
     var isSubmitting by remember { mutableStateOf(false) }
     var isCancelling by remember { mutableStateOf(false) }
     var isRequestingAssignment by remember { mutableStateOf(false) }
@@ -108,6 +109,7 @@ fun Bus어디가App() {
             boardingGuide = "울산역 1번 출구 앞",
         )
     }
+    val demoVehicleStart = remember { GeoPointDto(35.5588, 129.1255) }
 
     fun goHome() {
         request = RideRequest()
@@ -117,6 +119,7 @@ fun Bus어디가App() {
         stopQuery = ""
         stopsError = null
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
+        liveRouteCoordinates = emptyList()
         isSubmitting = false
         isCancelling = false
         isRequestingAssignment = false
@@ -251,8 +254,30 @@ fun Bus어디가App() {
                     )
                     realtimeMessage = "Firestore 실시간 연결됨 · ${update.status}"
                     when (liveStatus) {
-                        RideStatus.ASSIGNED, RideStatus.ARRIVING -> screen = BusScreen.ASSIGNED
-                        RideStatus.ON_BOARD -> screen = BusScreen.ON_BOARD
+                        RideStatus.ASSIGNED, RideStatus.ARRIVING -> {
+                            screen = BusScreen.ASSIGNED
+                            request.pickup?.let { pickup ->
+                                coroutineScope.launch {
+                                    runCatching { osmRouteClient.route(demoVehicleStart, pickup) }
+                                        .onSuccess { route ->
+                                            liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
+                                                if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                                            }
+                                        }
+                                }
+                            }
+                        }
+                        RideStatus.ON_BOARD -> {
+                            screen = BusScreen.ON_BOARD
+                            coroutineScope.launch {
+                                runCatching { osmRouteClient.preview(request) }
+                                    .onSuccess { route ->
+                                        liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
+                                            if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                                        }
+                                    }
+                            }
+                        }
                         RideStatus.COMPLETED -> screen = BusScreen.COMPLETED
                         RideStatus.CANCELLED -> {
                             problemTitle = "호출이 취소되었습니다"
@@ -440,6 +465,9 @@ fun Bus어디가App() {
                         coroutineScope.launch {
                             routeStatus = try {
                                 val result = osmRouteClient.preview(request)
+                                liveRouteCoordinates = result.route_coords.mapNotNull { coordinate ->
+                                    if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                                }
                                 "OSM 연결 성공 · 도로 거리 %.2f km".format(result.distance_m / 1000.0)
                             } catch (error: Exception) {
                                 "OSM 서버 연결 실패: ${error.message ?: "서버 주소를 확인해 주세요."}"
@@ -455,8 +483,8 @@ fun Bus어디가App() {
                     onCancel = ::cancelRideRequest,
                     onRequestDemoAssignment = ::requestDemoAssignment,
                 )
-                BusScreen.ASSIGNED -> AssignedScreen(assignment, request)
-                BusScreen.ON_BOARD -> OnBoardScreen(request)
+                BusScreen.ASSIGNED -> AssignedScreen(assignment, request, demoVehicleStart, liveRouteCoordinates)
+                BusScreen.ON_BOARD -> OnBoardScreen(request, liveRouteCoordinates)
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(
                     title = problemTitle,

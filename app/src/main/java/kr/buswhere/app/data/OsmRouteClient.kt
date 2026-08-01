@@ -2,6 +2,8 @@ package kr.buswhere.app.data
 
 import kr.buswhere.app.BuildConfig
 import kr.buswhere.app.model.RideRequest
+import kr.buswhere.app.model.GeoPointDto
+import kr.buswhere.app.model.Place
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -58,6 +60,21 @@ class OsmRouteClient(baseUrl: String = BuildConfig.API_BASE_URL) {
             ),
         )
     }
+
+    /** 차량의 현재 위치에서 승차 정류장까지 실제 OSM 도로 경로를 요청합니다. */
+    suspend fun route(start: GeoPointDto, destination: Place): OsmRouteResponseDto = api.findRoute(
+        OsmRouteRequestDto(
+            start_lat = start.latitude,
+            start_lon = start.longitude,
+            hospitals = listOf(
+                RoutePlaceDto(
+                    name = destination.name,
+                    lat = destination.location.latitude,
+                    lon = destination.location.longitude,
+                ),
+            ),
+        ),
+    )
 }
 
 private fun String.ensureTrailingSlash(): String = if (endsWith('/')) this else "$this/"

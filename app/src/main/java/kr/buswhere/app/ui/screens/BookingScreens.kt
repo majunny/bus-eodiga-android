@@ -23,7 +23,6 @@ import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.ui.components.ChoiceCard
 import kr.buswhere.app.ui.components.FullWidthButton
-import kr.buswhere.app.ui.components.MovingBusRoutePanel
 
 /** 앱 첫 화면으로 자주 가는 장소와 새 호출 진입점을 제공합니다. */
 @Composable
@@ -238,12 +237,6 @@ fun ConfirmationScreen(
             text = if (isSubmitting) "호출을 등록하고 있습니다…" else "⚡  버스 호출하기",
             onClick = onSubmit,
             enabled = !isSubmitting,
-        )
-        MovingBusRoutePanel(
-            title = "예상 운행 시뮬레이션",
-            startLabel = request.pickup?.name.orEmpty(),
-            endLabel = request.destination?.name.orEmpty(),
-            durationMillis = 8_000,
         )
     }
 }
