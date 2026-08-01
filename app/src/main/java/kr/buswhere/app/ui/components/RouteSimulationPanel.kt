@@ -42,6 +42,7 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
 data class MapRouteStop(
+    val placeId: String,
     val label: String,
     val location: GeoPointDto,
     val type: MapRouteStopType,

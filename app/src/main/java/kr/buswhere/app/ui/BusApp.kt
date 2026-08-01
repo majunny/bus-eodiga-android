@@ -644,6 +644,7 @@ fun Bus어디가App() {
                     sharedRouteStops,
                     request.demoCurrentStopIndex,
                     request.demoTripPhase,
+                    isModiMode,
                 )
                 BusScreen.ON_BOARD -> OnBoardScreen(
                     request,
@@ -651,6 +652,7 @@ fun Bus어디가App() {
                     sharedRouteStops,
                     request.demoCurrentStopIndex,
                     request.demoTripPhase,
+                    isModiMode,
                 )
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(

@@ -24,6 +24,7 @@ import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.VehicleAssignment
 import kr.buswhere.app.ui.components.FullWidthButton
 import kr.buswhere.app.ui.components.MovingBusRoutePanel
+import kr.buswhere.app.ui.components.ModiModelRoutePanel
 import kr.buswhere.app.ui.components.MapRouteStop
 import kr.buswhere.app.ui.components.MapRouteStopType
 import kr.buswhere.app.ui.components.StatusPanel
@@ -88,6 +89,7 @@ fun AssignedScreen(
     sharedRouteStops: List<Place>,
     currentStopIndex: Int,
     tripPhase: String,
+    isModiMode: Boolean,
 ) {
     val isOnBoard = request.status == RideStatus.ON_BOARD
     Column(
@@ -123,7 +125,14 @@ fun AssignedScreen(
             if (isOnBoard) request.destination?.name.orEmpty() else request.pickup?.name ?: assignment.boardingGuide,
         )
         TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
-        if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
+        if (isModiMode) {
+            ModiModelRoutePanel(
+                title = "MODI+ 공동 DRT 모형 운행",
+                routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
+                currentStopIndex = currentStopIndex,
+                tripPhase = tripPhase,
+            )
+        } else if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
             StatusPanel(
                 symbol = "…",
                 title = "공동 도로 경로를 불러오는 중입니다",
@@ -152,6 +161,7 @@ fun OnBoardScreen(
     sharedRouteStops: List<Place>,
     currentStopIndex: Int,
     tripPhase: String,
+    isModiMode: Boolean,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -186,7 +196,14 @@ fun OnBoardScreen(
             }
         }
         TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
-        if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
+        if (isModiMode) {
+            ModiModelRoutePanel(
+                title = "MODI+ 모형버스 운행 중",
+                routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
+                currentStopIndex = currentStopIndex,
+                tripPhase = tripPhase,
+            )
+        } else if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
             StatusPanel(
                 symbol = "…",
                 title = "공동 도로 경로를 불러오는 중입니다",
@@ -220,6 +237,7 @@ private fun List<Place>.toMapRouteStops(currentStopIndex: Int, tripPhase: String
     return mapIndexed { index, place ->
         val isPickup = index < pickupCount
         MapRouteStop(
+            placeId = place.id,
             label = place.name,
             location = place.location,
             type = if (isPickup) MapRouteStopType.PICKUP else MapRouteStopType.DROPOFF,
