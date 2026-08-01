@@ -159,7 +159,7 @@ fun Bus어디가App() {
         isSubmitting = true
         coroutineScope.launch {
             try {
-                val record = rideRequestClient.create(request, idempotencyKey)
+                val record = rideRequestClient.create(request, idempotencyKey, modiMode = isModiMode)
                 request = request.copy(
                     requestId = record.requestId,
                     userId = record.userId,

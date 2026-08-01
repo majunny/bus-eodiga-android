@@ -24,6 +24,19 @@ class RideRequestClientTest {
         assertEquals("uh-hospital", dto.destination.placeId)
         assertEquals(3, dto.passengerCount)
         assertEquals("SENIOR", dto.mobilitySupport)
+        assertEquals("ANDROID_APP", dto.source)
+    }
+
+    @Test
+    fun modiModeUsesDedicatedBackendDispatchSource() {
+        val dto = RideRequest(
+            pickup = DemoPlaces.modiModelStops[1],
+            destination = DemoPlaces.modiModelStops[5],
+        ).toCreateDto(modiMode = true)
+
+        assertEquals("MODI_APP", dto.source)
+        assertEquals("31205", dto.pickup.placeId)
+        assertEquals("64201", dto.destination.placeId)
     }
 
     @Test

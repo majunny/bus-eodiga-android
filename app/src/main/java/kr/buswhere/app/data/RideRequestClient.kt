@@ -86,9 +86,13 @@ class RideRequestClient(
         .build()
         .create(RideRequestApi::class.java)
 
-    suspend fun create(request: RideRequest, idempotencyKey: String = UUID.randomUUID().toString()): RideRequestRecordDto {
+    suspend fun create(
+        request: RideRequest,
+        idempotencyKey: String = UUID.randomUUID().toString(),
+        modiMode: Boolean = false,
+    ): RideRequestRecordDto {
         val token = session.awaitIdToken()
-        return api.create("Bearer $token", idempotencyKey, request.toCreateDto())
+        return api.create("Bearer $token", idempotencyKey, request.toCreateDto(modiMode))
     }
 
     suspend fun get(requestId: String): RideRequestRecordDto {
@@ -107,10 +111,11 @@ class RideRequestClient(
     }
 }
 
-fun RideRequest.toCreateDto(): RideRequestCreateDto {
+fun RideRequest.toCreateDto(modiMode: Boolean = false): RideRequestCreateDto {
     val selectedPickup = requireNotNull(pickup) { "출발지를 먼저 선택해 주세요." }
     val selectedDestination = requireNotNull(destination) { "목적지를 먼저 선택해 주세요." }
     return RideRequestCreateDto(
+        source = if (modiMode) "MODI_APP" else "ANDROID_APP",
         pickup = selectedPickup.toDto(),
         destination = selectedDestination.toDto(),
         passengerCount = companionCount + 1,
