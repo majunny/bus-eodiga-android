@@ -86,6 +86,7 @@ fun Bus어디가App() {
     var request by remember { mutableStateOf(RideRequest()) }
     var gpsMessage by remember { mutableStateOf<String?>(null) }
     var isDemoMode by remember { mutableStateOf(false) }
+    var isModiMode by remember { mutableStateOf(false) }
     var availableStops by remember { mutableStateOf<List<Place>>(emptyList()) }
     var stopQuery by remember { mutableStateOf("") }
     var stopsLoading by remember { mutableStateOf(false) }
@@ -124,6 +125,7 @@ fun Bus어디가App() {
         request = RideRequest()
         gpsMessage = null
         isDemoMode = false
+        isModiMode = false
         availableStops = emptyList()
         stopQuery = ""
         stopsError = null
@@ -271,6 +273,7 @@ fun Bus어디가App() {
 
     fun useCurrentLocation() {
         isDemoMode = false
+        isModiMode = false
         gpsMessage = "현재 위치를 확인하고 있습니다…"
         locationService.getCurrentLocation { result ->
             result.onSuccess { location ->
@@ -288,8 +291,16 @@ fun Bus어디가App() {
 
     fun useDemoLocation() {
         isDemoMode = true
+        isModiMode = false
         request = request.copy(pickup = null)
         gpsMessage = "아래 실제 정류장 3곳 중 출발지를 선택해 주세요."
+    }
+
+    fun useModiModel() {
+        isDemoMode = true
+        isModiMode = true
+        request = request.copy(pickup = null, destination = null)
+        gpsMessage = "모형 차량 대기 위치: ${DemoPlaces.modiVehicleStart.name} · 승차 정류장을 선택해 주세요."
     }
 
     fun loadSharedRouteIfNeeded(tripId: String?, stops: List<Place>) {
@@ -542,12 +553,21 @@ fun Bus어디가App() {
                     selected = request.pickup,
                     gpsMessage = gpsMessage,
                     isDemoMode = isDemoMode,
+                    isModiMode = isModiMode,
                     onUseGps = ::requestCurrentLocation,
                     onUseDemoMode = ::useDemoLocation,
+                    onUseModiMode = ::useModiModel,
                     onSelectDemoStop = { stop ->
                         isDemoMode = true
-                        request = request.copy(pickup = stop)
-                        gpsMessage = "시연 출발지: ${stop.name}"
+                        request = request.copy(
+                            pickup = stop,
+                            destination = request.destination?.takeUnless { isModiMode && it.id == stop.id },
+                        )
+                        gpsMessage = if (isModiMode) {
+                            "모형 승차 지점: ${stop.name} · 차량은 동부아파트입구에서 출발"
+                        } else {
+                            "시연 출발지: ${stop.name}"
+                        }
                     },
                     onOpenRecent = {
                         stopQuery = ""
@@ -576,6 +596,8 @@ fun Bus어디가App() {
                 )
                 BusScreen.DESTINATION -> DestinationScreen(
                     selected = request.destination,
+                    pickup = request.pickup,
+                    isModiMode = isModiMode,
                     query = destinationQuery,
                     searchResults = destinationResults,
                     isLoading = destinationLoading,
@@ -587,6 +609,7 @@ fun Bus어디가App() {
                     request = request,
                     routeStatus = routeStatus,
                     isDemoMode = isDemoMode,
+                    isModiMode = isModiMode,
                     isSubmitting = isSubmitting,
                     onPreviewRoute = {
                         routeStatus = "OSM 서버에서 도로 경로를 계산하고 있습니다…"

@@ -97,6 +97,19 @@ object DemoPlaces {
         Place("31109", "시청앞", "울산광역시 남구", GeoPointDto(35.53915699, 129.3123405), "BUS_STOP"),
     )
 
+    /** MODI 미니 도로 모형과 앱·백엔드가 공통으로 사용하는 여섯 정류장입니다. */
+    val modiModelStops = listOf(
+        Place("31208", "동부아파트입구", "울산광역시 남구", GeoPointDto(35.52742029, 129.3225519), "BUS_STOP"),
+        Place("31205", "수암시장앞", "울산광역시 남구", GeoPointDto(35.52792702, 129.3207326), "BUS_STOP"),
+        Place("40404", "공업탑", "울산광역시 남구", GeoPointDto(35.53301001, 129.3097744), "BUS_STOP"),
+        Place("40411", "달동현대아파트앞", "울산광역시 남구", GeoPointDto(35.53630572, 129.3237411), "BUS_STOP"),
+        Place("40410", "강남초등학교", "울산광역시 남구", GeoPointDto(35.5358198, 129.3205483), "BUS_STOP"),
+        Place("64201", "롯데마트", "울산광역시 남구", GeoPointDto(35.5336866, 129.3167411), "BUS_STOP"),
+    )
+
+    /** 모형 버스가 매 운행 전 대기하는 고정 출발점입니다. */
+    val modiVehicleStart: Place get() = modiModelStops.first()
+
     /** 초기 버전의 최근 이용 정류장 예제입니다. */
     val recentStops = listOf(ulsanStation, stops[1], stops[2])
 
