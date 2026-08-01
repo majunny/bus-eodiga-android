@@ -77,15 +77,15 @@ fun PickupScreen(
     ) {
         Text("어디서 타시나요?", style = MaterialTheme.typography.headlineMedium)
         ChoiceCard(
-            title = "현재 위치에서 탑승",
-            subtitle = gpsMessage ?: "GPS가 현재 위치를 확인합니다",
+            title = "현재 위치 주변 정류장",
+            subtitle = gpsMessage ?: "GPS로 가장 가까운 실제 정류장을 찾습니다",
             symbol = "◎",
-            selected = selected?.category == "GPS",
+            selected = selected?.category == "BUS_STOP" && gpsMessage != null,
             onClick = onUseGps,
         )
         ChoiceCard(
-            title = "가까운 정류장 선택",
-            subtitle = "최근에 이용한 정류장 목록",
+            title = "정류장 이름 검색",
+            subtitle = "울산 정류장 3,616개에서 검색합니다",
             symbol = "▣",
             selected = selected != null && selected.category == "BUS_STOP",
             onClick = onOpenRecent,

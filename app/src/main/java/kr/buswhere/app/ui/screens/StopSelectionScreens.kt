@@ -19,7 +19,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import kr.buswhere.app.BuildConfig
-import kr.buswhere.app.model.DemoPlaces
 import kr.buswhere.app.model.GeoPointDto
 import kr.buswhere.app.model.Place
 import kr.buswhere.app.ui.components.ChoiceCard
@@ -30,16 +29,37 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.annotations.MarkerOptions
 
-/** 최근 이용한 정류장을 큰 목록으로 표시합니다. */
+/** 실제 울산 정류장을 이름으로 검색해 큰 목록으로 표시합니다. */
 @Composable
-fun RecentStopsScreen(selected: Place?, onSelect: (Place) -> Unit) {
+fun RecentStopsScreen(
+    stops: List<Place>,
+    selected: Place?,
+    query: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onQueryChange: (String) -> Unit,
+    onSelect: (Place) -> Unit,
+) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("최근 이용한 정류장", style = MaterialTheme.typography.headlineMedium)
-        Text("자주 이용한 정류장을 선택해 주세요.", style = MaterialTheme.typography.bodyLarge)
-        DemoPlaces.recentStops.forEach { stop ->
+        Text("정류장 이름 검색", style = MaterialTheme.typography.headlineMedium)
+        Text("두 글자 이상 입력해 실제 울산 정류장을 찾아보세요.", style = MaterialTheme.typography.bodyLarge)
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("정류장명") },
+            placeholder = { Text("예: 태화강역, 울산역") },
+            singleLine = true,
+        )
+        if (isLoading) Text("정류장을 검색하고 있습니다…")
+        errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (!isLoading && query.trim().length >= 2 && stops.isEmpty() && errorMessage == null) {
+            Text("검색 결과가 없습니다.")
+        }
+        stops.forEach { stop ->
             ChoiceCard(
                 title = stop.name,
                 subtitle = stop.address,
@@ -53,7 +73,13 @@ fun RecentStopsScreen(selected: Place?, onSelect: (Place) -> Unit) {
 
 /** MapLibre OSM 지도에서 울산 정류장 마커를 선택합니다. */
 @Composable
-fun StopMapScreen(selected: Place?, onSelect: (Place) -> Unit) {
+fun StopMapScreen(
+    stops: List<Place>,
+    selected: Place?,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onSelect: (Place) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -64,6 +90,8 @@ fun StopMapScreen(selected: Place?, onSelect: (Place) -> Unit) {
         item {
             Text("지도 위 정류장 표시를 눌러주세요.", style = MaterialTheme.typography.bodyLarge)
         }
+        if (isLoading) item { Text("실제 정류장 위치를 불러오고 있습니다…") }
+        errorMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         selected?.let { stop ->
             item {
                 Text(
@@ -73,11 +101,11 @@ fun StopMapScreen(selected: Place?, onSelect: (Place) -> Unit) {
                 )
             }
         }
-        item { UlsanStopMap(selected = selected, onSelect = onSelect) }
+        item { UlsanStopMap(stops = stops, selected = selected, onSelect = onSelect) }
         item {
             Text("지도 또는 아래 정류장 이름을 눌러 선택할 수 있습니다.", style = MaterialTheme.typography.bodyMedium)
         }
-        items(DemoPlaces.stops, key = { it.id }) { stop ->
+        items(stops, key = { it.id }) { stop ->
             ChoiceCard(
                 title = stop.name,
                 subtitle = stop.address,
@@ -142,8 +170,10 @@ fun DestinationMapScreen(
 
 /** MapLibre MapView의 생명주기와 정류장 마커를 Compose에 연결합니다. */
 @Composable
-private fun UlsanStopMap(selected: Place?, onSelect: (Place) -> Unit) {
+private fun UlsanStopMap(stops: List<Place>, selected: Place?, onSelect: (Place) -> Unit) {
     val context = LocalContext.current
+    val currentStops = rememberUpdatedState(stops)
+    val currentOnSelect = rememberUpdatedState(onSelect)
     val mapView = remember {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -154,7 +184,7 @@ private fun UlsanStopMap(selected: Place?, onSelect: (Place) -> Unit) {
                     .zoom(10.5)
                     .build()
                 map.setStyle(mapStyle()) {
-                    DemoPlaces.stops.forEach { stop ->
+                    currentStops.value.forEach { stop ->
                         map.addMarker(
                             MarkerOptions()
                                 .position(LatLng(stop.location.latitude, stop.location.longitude))
@@ -164,15 +194,17 @@ private fun UlsanStopMap(selected: Place?, onSelect: (Place) -> Unit) {
                     }
                 }
                 map.setOnMarkerClickListener { marker ->
-                    DemoPlaces.stops.firstOrNull { it.name == marker.title }?.let(onSelect)
+                    currentStops.value.minByOrNull { stop ->
+                        val latDelta = stop.location.latitude - marker.position.latitude
+                        val lonDelta = stop.location.longitude - marker.position.longitude
+                        latDelta * latDelta + lonDelta * lonDelta
+                    }?.let(currentOnSelect.value)
                     true
                 }
                 map.addOnMapClickListener { point ->
-                    val nearest = DemoPlaces.nearestStop(
-                        GeoPointDto(point.latitude, point.longitude),
-                    )
-                    onSelect(nearest)
-                    false
+                    currentStops.value.nearestTo(GeoPointDto(point.latitude, point.longitude))
+                        ?.let(currentOnSelect.value)
+                    true
                 }
             }
             onStart()
@@ -194,8 +226,17 @@ private fun UlsanStopMap(selected: Place?, onSelect: (Place) -> Unit) {
             .fillMaxWidth()
             .height(380.dp),
         update = { view ->
-            selected?.let { stop ->
-                view.getMapAsync { map ->
+            view.getMapAsync { map ->
+                map.clear()
+                stops.forEach { stop ->
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(LatLng(stop.location.latitude, stop.location.longitude))
+                            .title(stop.name)
+                            .snippet(stop.address),
+                    )
+                }
+                selected?.let { stop ->
                     map.cameraPosition = CameraPosition.Builder()
                         .target(LatLng(stop.location.latitude, stop.location.longitude))
                         .zoom(13.5)
@@ -204,6 +245,12 @@ private fun UlsanStopMap(selected: Place?, onSelect: (Place) -> Unit) {
             }
         },
     )
+}
+
+private fun List<Place>.nearestTo(location: GeoPointDto): Place? = minByOrNull { stop ->
+    val latitudeDelta = stop.location.latitude - location.latitude
+    val longitudeDelta = stop.location.longitude - location.longitude
+    latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta
 }
 
 /** 지도에서 임의 좌표를 선택하는 MapLibre 지도입니다. */

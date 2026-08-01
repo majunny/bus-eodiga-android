@@ -25,6 +25,8 @@ API_BASE_URL=https://bus-eodiga-api.onrender.com/
 
 경로 확인은 Render의 `/api/find_nearest`를 사용합니다. 버스 호출과 조회·취소는 Firebase 익명 사용자의 ID Token을 `Authorization: Bearer` 헤더에 담아 `/v1/ride-requests` API로 처리합니다. 호출 생성에는 UUID 기반 `Idempotency-Key`를 사용해 버튼 재시도 시 중복 저장을 방지합니다.
 
+출발 정류장은 앱에 고정하지 않습니다. 울산광역시 정류소 위치 정보 3,616개를 제공하는 Render의 `/v1/bus-stops`와 `/v1/bus-stops/nearby`를 사용합니다. GPS 선택 시 반경 2km의 정류장을 거리순으로 불러와 가장 가까운 정류장을 선택하며, 정류장명 검색과 지도 선택으로 변경할 수 있습니다.
+
 ## Firebase 등록
 
 Firebase Console에서 Android 앱을 추가할 때 패키지명으로 다음 값을 정확히 입력합니다.

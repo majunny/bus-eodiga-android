@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import java.util.UUID
 import kr.buswhere.app.data.LocationService
+import kr.buswhere.app.data.BusStopClient
 import kr.buswhere.app.data.OsmRouteClient
 import kr.buswhere.app.data.RideRequestClient
 import kr.buswhere.app.data.toRideStatus
@@ -47,6 +49,7 @@ import kr.buswhere.app.ui.screens.ProblemScreen
 import kr.buswhere.app.ui.screens.RecentStopsScreen
 import kr.buswhere.app.ui.screens.StopMapScreen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /** BUS어디가 MVP에서 제공하는 화면 종류입니다. */
 private enum class BusScreen {
@@ -70,12 +73,17 @@ private enum class BusScreen {
 fun Bus어디가App() {
     val context = LocalContext.current
     val locationService = remember { LocationService(context.applicationContext) }
+    val busStopClient = remember { BusStopClient() }
     val osmRouteClient = remember { OsmRouteClient() }
     val rideRequestClient = remember { RideRequestClient() }
     val coroutineScope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(BusScreen.HOME) }
     var request by remember { mutableStateOf(RideRequest()) }
     var gpsMessage by remember { mutableStateOf<String?>(null) }
+    var availableStops by remember { mutableStateOf<List<Place>>(emptyList()) }
+    var stopQuery by remember { mutableStateOf("") }
+    var stopsLoading by remember { mutableStateOf(false) }
+    var stopsError by remember { mutableStateOf<String?>(null) }
     var customDestinationName by remember { mutableStateOf("") }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -98,6 +106,10 @@ fun Bus어디가App() {
 
     fun goHome() {
         request = RideRequest()
+        gpsMessage = null
+        availableStops = emptyList()
+        stopQuery = ""
+        stopsError = null
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
         isSubmitting = false
         isCancelling = false
@@ -160,23 +172,69 @@ fun Bus어디가App() {
         locationService.getCurrentLocation { result ->
             result.onSuccess { location ->
                 if (location.isInsideUlsan()) {
-                    request = request.copy(
-                        pickup = Place(
-                            id = "gps-current-location",
-                            name = "현재 위치",
-                            address = "위도 %.5f, 경도 %.5f".format(location.latitude, location.longitude),
-                            location = location,
-                            category = "GPS",
-                        ),
-                    )
-                    gpsMessage = "현재 위치를 확인했습니다."
+                    stopsLoading = true
+                    coroutineScope.launch {
+                        try {
+                            val nearby = busStopClient.nearby(location.latitude, location.longitude)
+                            availableStops = nearby
+                            val nearest = nearby.firstOrNull()
+                            request = request.copy(pickup = nearest)
+                            gpsMessage = nearest?.let { "가장 가까운 정류장: ${it.name} (${it.address.substringAfterLast(" · ")})" }
+                                ?: "현재 위치 반경 2km에 정류장이 없습니다."
+                            stopsError = null
+                        } catch (error: Exception) {
+                            gpsMessage = "주변 정류장을 불러오지 못했습니다."
+                            stopsError = error.message
+                        } finally {
+                            stopsLoading = false
+                        }
+                    }
                 } else {
                     request = request.copy(pickup = null)
-                    gpsMessage = "GPS 정상 작동: 현재는 울산 서비스 지역 밖입니다. 최근 정류장이나 지도를 선택해 주세요."
+                    gpsMessage = "GPS 정상 작동: 현재는 울산 서비스 지역 밖입니다. 정류장 검색이나 지도를 이용해 주세요."
                 }
             }.onFailure { error ->
                 gpsMessage = error.message ?: "현재 위치를 확인하지 못했습니다."
             }
+        }
+    }
+
+    fun openStopMap() {
+        screen = BusScreen.STOP_MAP
+        stopsLoading = true
+        coroutineScope.launch {
+            try {
+                val center = request.pickup?.location ?: GeoPointDto(35.5396, 129.3114)
+                availableStops = busStopClient.nearby(
+                    center.latitude,
+                    center.longitude,
+                    radiusM = 20_000.0,
+                    limit = 100,
+                )
+                stopsError = null
+            } catch (error: Exception) {
+                stopsError = error.message ?: "정류장 정보를 불러오지 못했습니다."
+            } finally {
+                stopsLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(screen, stopQuery) {
+        if (screen != BusScreen.RECENT_STOPS) return@LaunchedEffect
+        if (stopQuery.trim().length < 2) {
+            availableStops = emptyList()
+            return@LaunchedEffect
+        }
+        delay(300)
+        stopsLoading = true
+        try {
+            availableStops = busStopClient.search(stopQuery.trim())
+            stopsError = null
+        } catch (error: Exception) {
+            stopsError = error.message ?: "정류장 검색에 실패했습니다."
+        } finally {
+            stopsLoading = false
         }
     }
 
@@ -288,16 +346,35 @@ fun Bus어디가App() {
                     selected = request.pickup,
                     gpsMessage = gpsMessage,
                     onUseGps = ::requestCurrentLocation,
-                    onOpenRecent = { screen = BusScreen.RECENT_STOPS },
-                    onOpenMap = { screen = BusScreen.STOP_MAP },
+                    onOpenRecent = {
+                        stopQuery = ""
+                        availableStops = emptyList()
+                        stopsError = null
+                        screen = BusScreen.RECENT_STOPS
+                    },
+                    onOpenMap = ::openStopMap,
                 )
                 BusScreen.RECENT_STOPS -> RecentStopsScreen(
+                    stops = availableStops,
                     selected = request.pickup,
-                    onSelect = { request = request.copy(pickup = it) },
+                    query = stopQuery,
+                    isLoading = stopsLoading,
+                    errorMessage = stopsError,
+                    onQueryChange = { stopQuery = it },
+                    onSelect = {
+                        request = request.copy(pickup = it)
+                        gpsMessage = null
+                    },
                 )
                 BusScreen.STOP_MAP -> StopMapScreen(
+                    stops = availableStops,
                     selected = request.pickup,
-                    onSelect = { request = request.copy(pickup = it) },
+                    isLoading = stopsLoading,
+                    errorMessage = stopsError,
+                    onSelect = {
+                        request = request.copy(pickup = it)
+                        gpsMessage = null
+                    },
                 )
                 BusScreen.ASSISTANCE -> AssistanceScreen(
                     selected = request.support,
