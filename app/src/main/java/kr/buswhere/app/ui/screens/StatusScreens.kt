@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kr.buswhere.app.model.RideRequest
+import kr.buswhere.app.model.RideStatus
 import kr.buswhere.app.model.GeoPointDto
 import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.VehicleAssignment
@@ -88,14 +89,23 @@ fun AssignedScreen(
     currentStopIndex: Int,
     tripPhase: String,
 ) {
+    val isOnBoard = request.status == RideStatus.ON_BOARD
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("▣", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
-        Text("버스가 배정되었습니다", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
-        Text("예정 시간에 맞춰 정류장에서 기다려주세요.", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            if (isOnBoard) "목적지로 이동 중입니다" else "버스가 배정되었습니다",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.headlineMedium,
+        )
+        Text(
+            if (isOnBoard) "공동 DRT 경로를 따라 안전하게 이동하고 있습니다."
+            else "예정 시간에 맞춰 정류장에서 기다려주세요.",
+            style = MaterialTheme.typography.bodyLarge,
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -107,18 +117,30 @@ fun AssignedScreen(
             Text(assignment.plateNumber, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
         }
         InfoCard("◷", "${assignment.etaMinutes}분 뒤 도착", "현재 남은 정류장: ${assignment.remainingStops}개")
-        InfoCard("⌖", "내 승차 위치", request.pickup?.name ?: assignment.boardingGuide)
-        TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
-        MovingBusRoutePanel(
-            title = if (sharedRouteStops.isNotEmpty()) "다인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
-            startLabel = "차고지",
-            endLabel = sharedRouteStops.lastOrNull()?.name ?: request.pickup?.name.orEmpty(),
-            startLocation = vehicleStart,
-            endLocation = sharedRouteStops.lastOrNull()?.location ?: request.pickup?.location ?: vehicleStart,
-            routeCoordinates = routeCoordinates,
-            routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
-            durationMillis = 12_000,
+        InfoCard(
+            "⌖",
+            if (isOnBoard) "내 도착 위치" else "내 승차 위치",
+            if (isOnBoard) request.destination?.name.orEmpty() else request.pickup?.name ?: assignment.boardingGuide,
         )
+        TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
+        if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
+            StatusPanel(
+                symbol = "…",
+                title = "공동 도로 경로를 불러오는 중입니다",
+                description = "경로 계산이 끝나면 모든 휴대전화에 같은 파란 운행선이 표시됩니다.",
+            )
+        } else {
+            MovingBusRoutePanel(
+                title = if (sharedRouteStops.isNotEmpty()) "다인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
+                startLabel = "차고지",
+                endLabel = sharedRouteStops.lastOrNull()?.name ?: request.pickup?.name.orEmpty(),
+                startLocation = vehicleStart,
+                endLocation = sharedRouteStops.lastOrNull()?.location ?: request.pickup?.location ?: vehicleStart,
+                routeCoordinates = routeCoordinates,
+                routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
+                durationMillis = 12_000,
+            )
+        }
     }
 }
 
@@ -164,16 +186,24 @@ fun OnBoardScreen(
             }
         }
         TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
-        MovingBusRoutePanel(
-            title = "목적지까지 운행 중입니다",
-            startLabel = request.pickup?.name.orEmpty(),
-            endLabel = request.destination?.name.orEmpty(),
-            startLocation = request.pickup?.location ?: GeoPointDto(35.5514, 129.1387),
-            endLocation = request.destination?.location ?: GeoPointDto(35.5202, 129.4284),
-            routeCoordinates = routeCoordinates,
-            routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
-            durationMillis = 15_000,
-        )
+        if (sharedRouteStops.isNotEmpty() && routeCoordinates.isEmpty()) {
+            StatusPanel(
+                symbol = "…",
+                title = "공동 도로 경로를 불러오는 중입니다",
+                description = "경로 계산이 끝나면 모든 휴대전화에 같은 파란 운행선이 표시됩니다.",
+            )
+        } else {
+            MovingBusRoutePanel(
+                title = "목적지까지 운행 중입니다",
+                startLabel = request.pickup?.name.orEmpty(),
+                endLabel = request.destination?.name.orEmpty(),
+                startLocation = request.pickup?.location ?: GeoPointDto(35.5514, 129.1387),
+                endLocation = request.destination?.location ?: GeoPointDto(35.5202, 129.4284),
+                routeCoordinates = routeCoordinates,
+                routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
+                durationMillis = 15_000,
+            )
+        }
         FullWidthButton("긴급 도움 요청", {}, danger = true)
         Text(
             "사고나 긴급 상황 발생 시에만 눌러주세요.",

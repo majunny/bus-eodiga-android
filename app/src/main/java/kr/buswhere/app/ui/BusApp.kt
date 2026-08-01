@@ -97,6 +97,8 @@ fun Bus어디가App() {
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var liveRouteCoordinates by remember { mutableStateOf<List<GeoPointDto>>(emptyList()) }
     var sharedRouteStops by remember { mutableStateOf<List<Place>>(emptyList()) }
+    var loadedSharedRouteKey by remember { mutableStateOf<String?>(null) }
+    var loadingSharedRouteKey by remember { mutableStateOf<String?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
     var isCancelling by remember { mutableStateOf(false) }
     var isRequestingAssignment by remember { mutableStateOf(false) }
@@ -132,6 +134,8 @@ fun Bus어디가App() {
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
         liveRouteCoordinates = emptyList()
         sharedRouteStops = emptyList()
+        loadedSharedRouteKey = null
+        loadingSharedRouteKey = null
         isSubmitting = false
         isCancelling = false
         isRequestingAssignment = false
@@ -288,6 +292,35 @@ fun Bus어디가App() {
         gpsMessage = "아래 실제 정류장 3곳 중 출발지를 선택해 주세요."
     }
 
+    fun loadSharedRouteIfNeeded(tripId: String?, stops: List<Place>) {
+        if (tripId.isNullOrBlank() || stops.isEmpty()) return
+        val routeKey = buildString {
+            append(tripId)
+            stops.forEach { stop ->
+                append('|')
+                append(stop.id)
+                append(':')
+                append(stop.location.latitude)
+                append(':')
+                append(stop.location.longitude)
+            }
+        }
+        if (loadedSharedRouteKey == routeKey || loadingSharedRouteKey == routeKey) return
+
+        loadingSharedRouteKey = routeKey
+        liveRouteCoordinates = emptyList()
+        coroutineScope.launch {
+            runCatching { osmRouteClient.routeThrough(demoVehicleStart, stops) }
+                .onSuccess { route ->
+                    if (route.isNotEmpty() && loadingSharedRouteKey == routeKey) {
+                        liveRouteCoordinates = route
+                        loadedSharedRouteKey = routeKey
+                    }
+                }
+            if (loadingSharedRouteKey == routeKey) loadingSharedRouteKey = null
+        }
+    }
+
     DisposableEffect(request.requestId) {
         if (request.requestId.isBlank()) {
             onDispose { }
@@ -325,31 +358,36 @@ fun Bus어디가App() {
                     when (liveStatus) {
                         RideStatus.ASSIGNED, RideStatus.ARRIVING -> {
                             screen = BusScreen.ASSIGNED
-                            coroutineScope.launch {
-                                if (updatedSharedStops.isNotEmpty()) {
-                                    runCatching { osmRouteClient.routeThrough(demoVehicleStart, updatedSharedStops) }
-                                        .onSuccess { liveRouteCoordinates = it }
-                                } else {
+                            if (updatedSharedStops.isNotEmpty()) {
+                                loadSharedRouteIfNeeded(update.demoTripId, updatedSharedStops)
+                            } else {
+                                coroutineScope.launch {
                                     request.pickup?.let { pickup ->
                                         runCatching { osmRouteClient.route(demoVehicleStart, pickup) }
                                             .onSuccess { route ->
                                                 liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
                                                     if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
                                                 }
-                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                         RideStatus.ON_BOARD -> {
-                            screen = BusScreen.ON_BOARD
-                            coroutineScope.launch {
-                                runCatching { osmRouteClient.preview(request) }
-                                    .onSuccess { route ->
-                                        liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
-                                            if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                            if (updatedSharedStops.isNotEmpty()) {
+                                // 공동 운행은 탑승 후에도 같은 화면·경로를 유지해야 모든 기기의 지도가 일치합니다.
+                                screen = BusScreen.ASSIGNED
+                                loadSharedRouteIfNeeded(update.demoTripId, updatedSharedStops)
+                            } else {
+                                screen = BusScreen.ON_BOARD
+                                coroutineScope.launch {
+                                    runCatching { osmRouteClient.preview(request) }
+                                        .onSuccess { route ->
+                                            liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
+                                                if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                                            }
                                         }
-                                    }
+                                }
                             }
                         }
                         RideStatus.COMPLETED -> screen = BusScreen.COMPLETED
