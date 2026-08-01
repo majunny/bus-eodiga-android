@@ -369,7 +369,10 @@ fun Bus어디가App() {
                     when (liveStatus) {
                         RideStatus.ASSIGNED, RideStatus.ARRIVING -> {
                             screen = BusScreen.ASSIGNED
-                            if (updatedSharedStops.isNotEmpty()) {
+                            if (isModiMode) {
+                                // MODI 모드는 OSM 검색 없이 서버가 준 0~5번 정류장 순서를 직접 그립니다.
+                                liveRouteCoordinates = emptyList()
+                            } else if (updatedSharedStops.isNotEmpty()) {
                                 loadSharedRouteIfNeeded(update.demoTripId, updatedSharedStops)
                             } else {
                                 coroutineScope.launch {
@@ -388,10 +391,14 @@ fun Bus어디가App() {
                             if (updatedSharedStops.isNotEmpty()) {
                                 // 공동 운행은 탑승 후에도 같은 화면·경로를 유지해야 모든 기기의 지도가 일치합니다.
                                 screen = BusScreen.ASSIGNED
-                                loadSharedRouteIfNeeded(update.demoTripId, updatedSharedStops)
+                                if (isModiMode) {
+                                    liveRouteCoordinates = emptyList()
+                                } else {
+                                    loadSharedRouteIfNeeded(update.demoTripId, updatedSharedStops)
+                                }
                             } else {
                                 screen = BusScreen.ON_BOARD
-                                coroutineScope.launch {
+                                if (!isModiMode) coroutineScope.launch {
                                     runCatching { osmRouteClient.preview(request) }
                                         .onSuccess { route ->
                                             liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
@@ -612,6 +619,7 @@ fun Bus어디가App() {
                     isModiMode = isModiMode,
                     isSubmitting = isSubmitting,
                     onPreviewRoute = {
+                        if (isModiMode) return@ConfirmationScreen
                         routeStatus = "OSM 서버에서 도로 경로를 계산하고 있습니다…"
                         coroutineScope.launch {
                             routeStatus = try {

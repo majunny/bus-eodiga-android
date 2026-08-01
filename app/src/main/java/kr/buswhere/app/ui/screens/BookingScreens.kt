@@ -311,12 +311,20 @@ fun ConfirmationScreen(
             Text("예상 대기 시간", style = MaterialTheme.typography.bodyLarge)
             Text("약 8분", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
         }
-        FullWidthButton("OSM 도로 경로 확인", onPreviewRoute)
-        Text(
-            routeStatus,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        if (isModiMode) {
+            Text(
+                "모형 지도 경로 준비 완료 · 배차 후 차량 코드와 같은 0~5번 지도에서 실시간 위치를 표시합니다.",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        } else {
+            FullWidthButton("OSM 도로 경로 확인", onPreviewRoute)
+            Text(
+                routeStatus,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         FullWidthButton(
             text = if (isSubmitting) "호출을 등록하고 있습니다…" else "⚡  버스 호출하기",
             onClick = onSubmit,
