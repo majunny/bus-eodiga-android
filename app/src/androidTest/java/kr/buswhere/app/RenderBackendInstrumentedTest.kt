@@ -13,6 +13,7 @@ import kr.buswhere.app.model.DemoPlaces
 import kr.buswhere.app.model.MobilitySupport
 import kr.buswhere.app.model.RideRequest
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -111,5 +112,19 @@ class RenderBackendInstrumentedTest {
         assertEquals(firstAssigned.demoTripId, thirdAssigned.demoTripId)
         assertEquals(firstAssigned.assignedVehicleId, thirdAssigned.assignedVehicleId)
         assertEquals(6, thirdAssigned.demoRouteStops.size)
+
+        var finalRecords = listOf(firstAssigned, secondAssigned, thirdAssigned)
+        repeat(60) {
+            if (finalRecords.all { it.status == "COMPLETED" }) return@repeat
+            delay(1_000)
+            finalRecords = listOf(
+                firstClient.get(firstCreated.requestId),
+                secondClient.get(secondCreated.requestId),
+                thirdClient.get(thirdCreated.requestId),
+            )
+        }
+        assertTrue(finalRecords.all { it.status == "COMPLETED" })
+        assertTrue(finalRecords.all { it.demoTripPhase == "COMPLETED" })
+        assertTrue(finalRecords.all { it.demoCurrentStopIndex == 5 })
     }
 }
