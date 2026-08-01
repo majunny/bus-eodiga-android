@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import kr.buswhere.app.data.LocationService
 import kr.buswhere.app.data.BusStopClient
 import kr.buswhere.app.data.OsmRouteClient
 import kr.buswhere.app.data.RideRequestClient
+import kr.buswhere.app.data.RideRequestObserver
 import kr.buswhere.app.data.toRideStatus
 import kr.buswhere.app.model.GeoPointDto
 import kr.buswhere.app.model.DemoPlaces
@@ -75,6 +77,7 @@ fun Bus어디가App() {
     val busStopClient = remember { BusStopClient() }
     val osmRouteClient = remember { OsmRouteClient() }
     val rideRequestClient = remember { RideRequestClient() }
+    val rideRequestObserver = remember { RideRequestObserver() }
     val coroutineScope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(BusScreen.HOME) }
     var previousScreen by remember { mutableStateOf(BusScreen.HOME) }
@@ -88,6 +91,8 @@ fun Bus어디가App() {
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var isSubmitting by remember { mutableStateOf(false) }
     var isCancelling by remember { mutableStateOf(false) }
+    var isRequestingAssignment by remember { mutableStateOf(false) }
+    var realtimeMessage by remember { mutableStateOf("Firestore 실시간 배차 상태를 기다리고 있습니다.") }
     var idempotencyKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var problemTitle by remember { mutableStateOf("인터넷 연결을 확인하세요") }
     var problemDescription by remember { mutableStateOf("네트워크 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.") }
@@ -114,6 +119,8 @@ fun Bus어디가App() {
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
         isSubmitting = false
         isCancelling = false
+        isRequestingAssignment = false
+        realtimeMessage = "Firestore 실시간 배차 상태를 기다리고 있습니다."
         idempotencyKey = UUID.randomUUID().toString()
         screen = BusScreen.HOME
     }
@@ -168,6 +175,22 @@ fun Bus어디가App() {
         }
     }
 
+    fun requestDemoAssignment() {
+        if (isRequestingAssignment || request.requestId.isBlank()) return
+        isRequestingAssignment = true
+        realtimeMessage = "Render가 Firestore에 차량 배정을 기록하고 있습니다…"
+        coroutineScope.launch {
+            try {
+                rideRequestClient.assignDemo(request.requestId)
+                realtimeMessage = "배차 기록 완료 · 실시간 알림을 기다리는 중…"
+            } catch (error: Exception) {
+                showNetworkProblem("시연 차량을 배정하지 못했습니다", error, BusScreen.MATCHING)
+            } finally {
+                isRequestingAssignment = false
+            }
+        }
+    }
+
     fun selectNearestStop(location: GeoPointDto, demoMode: Boolean) {
         isDemoMode = demoMode
         stopsLoading = true
@@ -212,6 +235,47 @@ fun Bus어디가App() {
     fun useDemoLocation() {
         gpsMessage = "울산역 기준 실제 정류장을 불러오고 있습니다…"
         selectNearestStop(DemoPlaces.ulsanStation.location, demoMode = true)
+    }
+
+    DisposableEffect(request.requestId) {
+        if (request.requestId.isBlank()) {
+            onDispose { }
+        } else {
+            val registration = rideRequestObserver.observe(request.requestId) { result ->
+                result.onSuccess { update ->
+                    val liveStatus = update.toRideStatus()
+                    request = request.copy(
+                        userId = update.userId,
+                        status = liveStatus,
+                        assignedVehicleId = update.assignedVehicleId,
+                    )
+                    realtimeMessage = "Firestore 실시간 연결됨 · ${update.status}"
+                    when (liveStatus) {
+                        RideStatus.ASSIGNED, RideStatus.ARRIVING -> screen = BusScreen.ASSIGNED
+                        RideStatus.ON_BOARD -> screen = BusScreen.ON_BOARD
+                        RideStatus.COMPLETED -> screen = BusScreen.COMPLETED
+                        RideStatus.CANCELLED -> {
+                            problemTitle = "호출이 취소되었습니다"
+                            problemDescription = "Firestore에서 취소 상태를 실시간으로 확인했습니다."
+                            problemActionLabel = "새 호출 시작"
+                            problemReturnScreen = BusScreen.HOME
+                            screen = BusScreen.PROBLEM
+                        }
+                        RideStatus.FAILED -> {
+                            problemTitle = "배차를 완료하지 못했습니다"
+                            problemDescription = "Firestore에서 배차 실패 상태를 수신했습니다."
+                            problemActionLabel = "새 호출 시작"
+                            problemReturnScreen = BusScreen.HOME
+                            screen = BusScreen.PROBLEM
+                        }
+                        else -> Unit
+                    }
+                }.onFailure { error ->
+                    realtimeMessage = "실시간 연결 실패: ${error.message ?: "Firestore 연결을 확인해 주세요."}"
+                }
+            }
+            onDispose { registration.remove() }
+        }
     }
 
     LaunchedEffect(screen, stopQuery) {
@@ -386,14 +450,10 @@ fun Bus어디가App() {
                 )
                 BusScreen.MATCHING -> MatchingScreen(
                     isCancelling = isCancelling,
+                    isRequestingAssignment = isRequestingAssignment,
+                    realtimeMessage = realtimeMessage,
                     onCancel = ::cancelRideRequest,
-                    onDemoAssigned = {
-                        request = request.copy(
-                            status = RideStatus.ASSIGNED,
-                            assignedVehicleId = assignment.vehicleId,
-                        )
-                        screen = BusScreen.ASSIGNED
-                    },
+                    onRequestDemoAssignment = ::requestDemoAssignment,
                 )
                 BusScreen.ASSIGNED -> AssignedScreen(assignment, request)
                 BusScreen.ON_BOARD -> OnBoardScreen(request)

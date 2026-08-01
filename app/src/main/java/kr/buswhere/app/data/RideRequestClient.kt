@@ -61,6 +61,12 @@ private interface RideRequestApi {
         @Path("requestId") requestId: String,
         @Header("Authorization") authorization: String,
     ): RideRequestRecordDto
+
+    @POST("v1/ride-requests/{requestId}/demo-assign")
+    suspend fun assignDemo(
+        @Path("requestId") requestId: String,
+        @Header("Authorization") authorization: String,
+    ): RideRequestRecordDto
 }
 
 /** Firebase 인증 토큰을 포함해 Render 호출 API와 통신합니다. */
@@ -88,6 +94,11 @@ class RideRequestClient(
         val token = session.awaitIdToken()
         return api.cancel(requestId, "Bearer $token")
     }
+
+    suspend fun assignDemo(requestId: String): RideRequestRecordDto {
+        val token = session.awaitIdToken()
+        return api.assignDemo(requestId, "Bearer $token")
+    }
 }
 
 fun RideRequest.toCreateDto(): RideRequestCreateDto {
@@ -102,6 +113,15 @@ fun RideRequest.toCreateDto(): RideRequestCreateDto {
 }
 
 fun RideRequestRecordDto.toRideStatus(): RideStatus = when (status) {
+    "WAITING" -> RideStatus.MATCHING
+    "ASSIGNED" -> RideStatus.ASSIGNED
+    "PICKED_UP" -> RideStatus.ON_BOARD
+    "COMPLETED" -> RideStatus.COMPLETED
+    "CANCELLED" -> RideStatus.CANCELLED
+    else -> RideStatus.FAILED
+}
+
+fun RideStatusUpdate.toRideStatus(): RideStatus = when (status) {
     "WAITING" -> RideStatus.MATCHING
     "ASSIGNED" -> RideStatus.ASSIGNED
     "PICKED_UP" -> RideStatus.ON_BOARD
