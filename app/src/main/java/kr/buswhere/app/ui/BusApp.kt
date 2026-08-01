@@ -152,6 +152,8 @@ fun Bus어디가App() {
                     demoTripId = record.demoTripId,
                     matchedPassengerCount = record.matchedPassengerCount,
                     demoGroupSize = record.demoGroupSize,
+                    demoCurrentStopIndex = record.demoCurrentStopIndex,
+                    demoTripPhase = record.demoTripPhase,
                     createdAtEpochMillis = System.currentTimeMillis(),
                 )
                 screen = BusScreen.MATCHING
@@ -163,6 +165,8 @@ fun Bus어디가App() {
                         matchedPassengerCount = pooled.matchedPassengerCount,
                         demoTripId = pooled.demoTripId,
                         demoGroupSize = pooled.demoGroupSize,
+                        demoCurrentStopIndex = pooled.demoCurrentStopIndex,
+                        demoTripPhase = pooled.demoTripPhase,
                     )
                     realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
                         "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
@@ -211,6 +215,8 @@ fun Bus어디가App() {
                     matchedPassengerCount = pooled.matchedPassengerCount,
                     demoTripId = pooled.demoTripId,
                     demoGroupSize = pooled.demoGroupSize,
+                    demoCurrentStopIndex = pooled.demoCurrentStopIndex,
+                    demoTripPhase = pooled.demoTripPhase,
                 )
                 realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
                     "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
@@ -296,6 +302,8 @@ fun Bus어디가App() {
                         demoTripId = update.demoTripId,
                         matchedPassengerCount = update.matchedPassengerCount,
                         demoGroupSize = update.demoGroupSize,
+                        demoCurrentStopIndex = update.demoCurrentStopIndex,
+                        demoTripPhase = update.demoTripPhase,
                     )
                     realtimeMessage = when {
                         liveStatus == RideStatus.MATCHING && update.matchedPassengerCount > 0 ->
@@ -442,22 +450,6 @@ fun Bus어디가App() {
                     onBack = { screen = BusScreen.DESTINATION },
                     onNext = null,
                 )
-                BusScreen.ASSIGNED -> BottomNavigationBar(
-                    onBack = null,
-                    onNext = {
-                        request = request.copy(status = RideStatus.ON_BOARD)
-                        screen = BusScreen.ON_BOARD
-                    },
-                    nextLabel = "탑승 시연",
-                )
-                BusScreen.ON_BOARD -> BottomNavigationBar(
-                    onBack = null,
-                    onNext = {
-                        request = request.copy(status = RideStatus.COMPLETED)
-                        screen = BusScreen.COMPLETED
-                    },
-                    nextLabel = "도착 시연",
-                )
                 else -> Unit
             }
         },
@@ -552,8 +544,16 @@ fun Bus어디가App() {
                     demoVehicleStart,
                     liveRouteCoordinates,
                     sharedRouteStops,
+                    request.demoCurrentStopIndex,
+                    request.demoTripPhase,
                 )
-                BusScreen.ON_BOARD -> OnBoardScreen(request, liveRouteCoordinates, sharedRouteStops)
+                BusScreen.ON_BOARD -> OnBoardScreen(
+                    request,
+                    liveRouteCoordinates,
+                    sharedRouteStops,
+                    request.demoCurrentStopIndex,
+                    request.demoTripPhase,
+                )
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(
                     title = problemTitle,

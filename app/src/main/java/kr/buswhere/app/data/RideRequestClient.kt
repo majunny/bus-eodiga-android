@@ -41,6 +41,8 @@ data class RideRequestRecordDto(
     @SerializedName("demo_trip_id") val demoTripId: String? = null,
     @SerializedName("matched_passenger_count") val matchedPassengerCount: Int = 0,
     @SerializedName("demo_group_size") val demoGroupSize: Int = 3,
+    @SerializedName("demo_current_stop_index") val demoCurrentStopIndex: Int = -1,
+    @SerializedName("demo_trip_phase") val demoTripPhase: String = "WAITING",
     @SerializedName("demo_route_stops") val demoRouteStops: List<RidePlaceDto> = emptyList(),
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("updated_at") val updatedAt: String,

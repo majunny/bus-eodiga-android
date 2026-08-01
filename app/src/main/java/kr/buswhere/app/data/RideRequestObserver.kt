@@ -11,6 +11,8 @@ data class RideStatusUpdate(
     val demoTripId: String?,
     val matchedPassengerCount: Int,
     val demoGroupSize: Int,
+    val demoCurrentStopIndex: Int,
+    val demoTripPhase: String,
     val demoRouteStops: List<RideRouteStopUpdate>,
 )
 
@@ -46,6 +48,8 @@ class RideRequestObserver(
                 demoTripId = snapshot.getString("demo_trip_id"),
                 matchedPassengerCount = snapshot.getLong("matched_passenger_count")?.toInt() ?: 0,
                 demoGroupSize = snapshot.getLong("demo_group_size")?.toInt() ?: 3,
+                demoCurrentStopIndex = snapshot.getLong("demo_current_stop_index")?.toInt() ?: -1,
+                demoTripPhase = snapshot.getString("demo_trip_phase") ?: "WAITING",
                 demoRouteStops = snapshot.demoRouteStops(),
             )))
         }

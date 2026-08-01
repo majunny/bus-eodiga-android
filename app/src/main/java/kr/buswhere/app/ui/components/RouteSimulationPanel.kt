@@ -46,6 +46,8 @@ data class MapRouteStop(
     val location: GeoPointDto,
     val type: MapRouteStopType,
     val order: Int,
+    val isActive: Boolean = false,
+    val isCompleted: Boolean = false,
 )
 
 enum class MapRouteStopType { PICKUP, DROPOFF }
@@ -112,7 +114,12 @@ fun MovingBusRoutePanel(
         } else {
             routeStops.forEachIndexed { index, stop ->
                 val prefix = if (stop.type == MapRouteStopType.PICKUP) "P" else "D"
-                val color = if (stop.type == MapRouteStopType.PICKUP) Color.rgb(7, 103, 200) else Color.rgb(239, 108, 0)
+                val color = when {
+                    stop.isActive -> Color.rgb(0, 150, 90)
+                    stop.isCompleted -> Color.rgb(102, 112, 133)
+                    stop.type == MapRouteStopType.PICKUP -> Color.rgb(7, 103, 200)
+                    else -> Color.rgb(239, 108, 0)
+                }
                 val typeLabel = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
                 mapView.overlays.add(
                     createStopMarker(
@@ -180,13 +187,19 @@ fun MovingBusRoutePanel(
                 Text("공동 DRT 운행 순서", style = MaterialTheme.typography.titleMedium)
                 routeStops.forEach { stop ->
                     val type = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
-                    val color = if (stop.type == MapRouteStopType.PICKUP) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        ComposeColor(0xFFEF6C00)
+                    val color = when {
+                        stop.isActive -> ComposeColor(0xFF00965A)
+                        stop.isCompleted -> ComposeColor(0xFF667085)
+                        stop.type == MapRouteStopType.PICKUP -> MaterialTheme.colorScheme.primary
+                        else -> ComposeColor(0xFFEF6C00)
+                    }
+                    val state = when {
+                        stop.isActive -> " · 현재"
+                        stop.isCompleted -> " · 완료"
+                        else -> ""
                     }
                     Text(
-                        "${if (stop.type == MapRouteStopType.PICKUP) "P" else "D"}${stop.order}  $type · ${stop.label}",
+                        "${if (stop.type == MapRouteStopType.PICKUP) "P" else "D"}${stop.order}  $type · ${stop.label}$state",
                         color = color,
                         style = MaterialTheme.typography.bodyMedium,
                     )

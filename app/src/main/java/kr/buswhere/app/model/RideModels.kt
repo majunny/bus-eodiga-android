@@ -50,6 +50,8 @@ data class RideRequest(
     val demoTripId: String? = null,
     val matchedPassengerCount: Int = 0,
     val demoGroupSize: Int = 3,
+    val demoCurrentStopIndex: Int = -1,
+    val demoTripPhase: String = "WAITING",
     val createdAtEpochMillis: Long = 0L,
 )
 

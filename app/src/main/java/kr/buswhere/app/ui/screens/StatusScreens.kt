@@ -85,6 +85,8 @@ fun AssignedScreen(
     vehicleStart: GeoPointDto,
     routeCoordinates: List<GeoPointDto>,
     sharedRouteStops: List<Place>,
+    currentStopIndex: Int,
+    tripPhase: String,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -106,6 +108,7 @@ fun AssignedScreen(
         }
         InfoCard("◷", "${assignment.etaMinutes}분 뒤 도착", "현재 남은 정류장: ${assignment.remainingStops}개")
         InfoCard("⌖", "내 승차 위치", request.pickup?.name ?: assignment.boardingGuide)
+        TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
         MovingBusRoutePanel(
             title = if (sharedRouteStops.isNotEmpty()) "다인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
             startLabel = "차고지",
@@ -113,7 +116,7 @@ fun AssignedScreen(
             startLocation = vehicleStart,
             endLocation = sharedRouteStops.lastOrNull()?.location ?: request.pickup?.location ?: vehicleStart,
             routeCoordinates = routeCoordinates,
-            routeStops = sharedRouteStops.toMapRouteStops(),
+            routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
             durationMillis = 12_000,
         )
     }
@@ -125,6 +128,8 @@ fun OnBoardScreen(
     request: RideRequest,
     routeCoordinates: List<GeoPointDto>,
     sharedRouteStops: List<Place>,
+    currentStopIndex: Int,
+    tripPhase: String,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -158,6 +163,7 @@ fun OnBoardScreen(
                 Text("3.2km 남음", color = MaterialTheme.colorScheme.onPrimary)
             }
         }
+        TripProgressCard(sharedRouteStops, currentStopIndex, tripPhase)
         MovingBusRoutePanel(
             title = "목적지까지 운행 중입니다",
             startLabel = request.pickup?.name.orEmpty(),
@@ -165,7 +171,7 @@ fun OnBoardScreen(
             startLocation = request.pickup?.location ?: GeoPointDto(35.5514, 129.1387),
             endLocation = request.destination?.location ?: GeoPointDto(35.5202, 129.4284),
             routeCoordinates = routeCoordinates,
-            routeStops = sharedRouteStops.toMapRouteStops(),
+            routeStops = sharedRouteStops.toMapRouteStops(currentStopIndex, tripPhase),
             durationMillis = 15_000,
         )
         FullWidthButton("긴급 도움 요청", {}, danger = true)
@@ -178,7 +184,7 @@ fun OnBoardScreen(
     }
 }
 
-private fun List<Place>.toMapRouteStops(): List<MapRouteStop> {
+private fun List<Place>.toMapRouteStops(currentStopIndex: Int, tripPhase: String): List<MapRouteStop> {
     if (isEmpty()) return emptyList()
     val pickupCount = size / 2
     return mapIndexed { index, place ->
@@ -188,6 +194,38 @@ private fun List<Place>.toMapRouteStops(): List<MapRouteStop> {
             location = place.location,
             type = if (isPickup) MapRouteStopType.PICKUP else MapRouteStopType.DROPOFF,
             order = if (isPickup) index + 1 else index - pickupCount + 1,
+            isActive = index == currentStopIndex && tripPhase !in setOf("BOARDED", "DROPPED_OFF", "COMPLETED"),
+            isCompleted = index < currentStopIndex || (
+                index == currentStopIndex && tripPhase in setOf("BOARDED", "DROPPED_OFF", "COMPLETED")
+            ),
+        )
+    }
+}
+
+@Composable
+private fun TripProgressCard(stops: List<Place>, currentStopIndex: Int, tripPhase: String) {
+    val current = stops.getOrNull(currentStopIndex)
+    val phaseLabel = when (tripPhase) {
+        "READY" -> "운행 출발 준비"
+        "EN_ROUTE" -> "다음 경유지로 이동 중"
+        "ARRIVED" -> "경유지 도착"
+        "BOARDED" -> "승객 탑승 완료"
+        "DROPPED_OFF" -> "승객 하차 완료"
+        "COMPLETED" -> "공동 운행 완료"
+        else -> "운행 상태 확인 중"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(phaseLabel, color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.titleLarge)
+        Text(
+            current?.let { "${currentStopIndex + 1}/${stops.size} · ${it.name}" } ?: "첫 승차 지점으로 출발합니다.",
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            style = MaterialTheme.typography.bodyLarge,
         )
     }
 }
@@ -200,7 +238,7 @@ fun CompletedScreen(onHome: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        StatusPanel("✓", "목적지에 도착했습니다", "보호자에게 도착 알림을 전송했습니다.")
+        StatusPanel("✓", "목적지에 도착했습니다", "공동 DRT 운행을 안전하게 완료했습니다.")
         Text("오늘 이동 서비스는 어떠셨나요?", style = MaterialTheme.typography.titleLarge)
         listOf("☹  별로예요", "●  보통이에요", "☺  좋아요").forEach { label ->
             FullWidthButton(label, {})
