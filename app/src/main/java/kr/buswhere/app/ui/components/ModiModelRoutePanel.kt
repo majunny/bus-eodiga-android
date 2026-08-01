@@ -35,15 +35,15 @@ private data class ModiMapNode(
     val labelAbove: Boolean,
 )
 
-/** 친구가 제작한 실제 0~5번 모형 지도의 상대 배치입니다. */
+/** 친구의 차량 제어 좌표계에 맞춰 원본 모형 지도를 좌우 반전한 상대 배치입니다. */
 private val modiMapNodes = listOf(
-    ModiMapNode("31208", 0, "동부아파트", .82f, .80f, false),
-    ModiMapNode("31205", 1, "수암시장", .58f, .80f, false),
-    ModiMapNode("40404", 2, "공업탑", .17f, .21f, true),
-    ModiMapNode("40411", 3, "달동현대아파트", .82f, .17f, true),
+    ModiMapNode("31208", 0, "동부아파트", .18f, .80f, false),
+    ModiMapNode("31205", 1, "수암시장", .42f, .80f, false),
+    ModiMapNode("40404", 2, "공업탑", .83f, .21f, true),
+    ModiMapNode("40411", 3, "달동현대아파트", .18f, .17f, true),
     // 실제 모형의 4번 표기를 사용하되 내부 정류장 ID는 기존 연동값을 유지합니다.
-    ModiMapNode("40410", 4, "굿모닝병원", .56f, .21f, true),
-    ModiMapNode("64201", 5, "롯데마트", .35f, .43f, false),
+    ModiMapNode("40410", 4, "굿모닝병원", .44f, .21f, true),
+    ModiMapNode("64201", 5, "롯데마트", .65f, .43f, false),
 )
 
 /** OSM 대신 물리 MODI 도로판과 같은 고정 배치에서 공동 운행을 표시합니다. */
@@ -73,7 +73,7 @@ fun ModiModelRoutePanel(
     ) {
         Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
             Text(title, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
-            Text("실제 MODI+ 모형과 동일한 0~5번 주행 지도", style = MaterialTheme.typography.bodyMedium)
+            Text("MODI+ 차량 제어 방향과 동일한 0~5번 주행 지도", style = MaterialTheme.typography.bodyMedium)
         }
         Canvas(
             modifier = Modifier
