@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -170,6 +171,11 @@ fun AssistanceScreen(
 @Composable
 fun DestinationScreen(
     selected: Place?,
+    query: String,
+    searchResults: List<Place>,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onQueryChange: (String) -> Unit,
     onSelect: (Place) -> Unit,
 ) {
     Column(
@@ -177,7 +183,34 @@ fun DestinationScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("도착지를 선택하세요", style = MaterialTheme.typography.headlineMedium)
-        Text("버스가 도착할 장소를 눌러주세요.", style = MaterialTheme.typography.bodyLarge)
+        Text("울산의 장소를 이름으로 검색하거나 추천 목적지를 눌러주세요.", style = MaterialTheme.typography.bodyLarge)
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("도착지 검색") },
+            placeholder = { Text("예: 울산대학교, 울산대공원") },
+            singleLine = true,
+        )
+        when {
+            isLoading -> Text("장소를 검색하고 있습니다…", color = MaterialTheme.colorScheme.primary)
+            errorMessage != null -> Text(errorMessage, color = MaterialTheme.colorScheme.error)
+            query.trim().length >= 2 && searchResults.isEmpty() ->
+                Text("울산에서 검색 결과를 찾지 못했습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (searchResults.isNotEmpty()) {
+            Text("검색 결과", style = MaterialTheme.typography.titleLarge)
+            searchResults.forEach { place ->
+                ChoiceCard(
+                    title = place.name,
+                    subtitle = place.address,
+                    symbol = "⌕",
+                    selected = selected?.id == place.id,
+                    onClick = { onSelect(place) },
+                )
+            }
+        }
+        Text("추천 목적지", style = MaterialTheme.typography.titleLarge)
         DemoPlaces.destinations.forEach { place ->
             ChoiceCard(
                 title = place.name,

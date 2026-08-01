@@ -27,6 +27,7 @@ import java.util.UUID
 import kr.buswhere.app.data.LocationService
 import kr.buswhere.app.data.BusStopClient
 import kr.buswhere.app.data.OsmRouteClient
+import kr.buswhere.app.data.PlaceSearchClient
 import kr.buswhere.app.data.RideRequestClient
 import kr.buswhere.app.data.RideRequestObserver
 import kr.buswhere.app.data.toRideStatus
@@ -76,6 +77,7 @@ fun Bus어디가App() {
     val locationService = remember { LocationService(context.applicationContext) }
     val busStopClient = remember { BusStopClient() }
     val osmRouteClient = remember { OsmRouteClient() }
+    val placeSearchClient = remember { PlaceSearchClient() }
     val rideRequestClient = remember { RideRequestClient() }
     val rideRequestObserver = remember { RideRequestObserver() }
     val coroutineScope = rememberCoroutineScope()
@@ -88,6 +90,10 @@ fun Bus어디가App() {
     var stopQuery by remember { mutableStateOf("") }
     var stopsLoading by remember { mutableStateOf(false) }
     var stopsError by remember { mutableStateOf<String?>(null) }
+    var destinationQuery by remember { mutableStateOf("") }
+    var destinationResults by remember { mutableStateOf<List<Place>>(emptyList()) }
+    var destinationLoading by remember { mutableStateOf(false) }
+    var destinationError by remember { mutableStateOf<String?>(null) }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var liveRouteCoordinates by remember { mutableStateOf<List<GeoPointDto>>(emptyList()) }
     var sharedRouteStops by remember { mutableStateOf<List<Place>>(emptyList()) }
@@ -119,6 +125,10 @@ fun Bus어디가App() {
         availableStops = emptyList()
         stopQuery = ""
         stopsError = null
+        destinationQuery = ""
+        destinationResults = emptyList()
+        destinationLoading = false
+        destinationError = null
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
         liveRouteCoordinates = emptyList()
         sharedRouteStops = emptyList()
@@ -385,6 +395,28 @@ fun Bus어디가App() {
         }
     }
 
+    LaunchedEffect(screen, destinationQuery) {
+        if (screen != BusScreen.DESTINATION) return@LaunchedEffect
+        val normalizedQuery = destinationQuery.trim()
+        if (normalizedQuery.length < 2) {
+            destinationResults = emptyList()
+            destinationLoading = false
+            destinationError = null
+            return@LaunchedEffect
+        }
+        delay(350)
+        destinationLoading = true
+        try {
+            destinationResults = placeSearchClient.search(normalizedQuery)
+            destinationError = null
+        } catch (error: Exception) {
+            destinationResults = emptyList()
+            destinationError = error.message ?: "도착지 검색에 실패했습니다."
+        } finally {
+            destinationLoading = false
+        }
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { permissions ->
@@ -506,6 +538,11 @@ fun Bus어디가App() {
                 )
                 BusScreen.DESTINATION -> DestinationScreen(
                     selected = request.destination,
+                    query = destinationQuery,
+                    searchResults = destinationResults,
+                    isLoading = destinationLoading,
+                    errorMessage = destinationError,
+                    onQueryChange = { destinationQuery = it },
                     onSelect = { request = request.copy(destination = it) },
                 )
                 BusScreen.CONFIRMATION -> ConfirmationScreen(

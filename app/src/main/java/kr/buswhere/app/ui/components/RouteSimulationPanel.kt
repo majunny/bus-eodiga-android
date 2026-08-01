@@ -101,17 +101,37 @@ fun MovingBusRoutePanel(
             setTitle("BUS어디가 시연 차량")
         }
     }
+    val stopMarkers = remember { mutableListOf<Marker>() }
+    val stopLocationKey = routeStops.joinToString(separator = "|") { stop ->
+        "${stop.type}:${stop.order}:${stop.location.latitude}:${stop.location.longitude}"
+    }
 
-    LaunchedEffect(points, routeStops) {
-        val markerPositions = routeStops.mapIndexed { index, _ -> spreadMarkerPosition(routeStops, index) }
+    LaunchedEffect(points) {
         routeLine.setPoints(points)
         busMarker.position = points.first()
         mapView.overlays.clear()
         mapView.overlays.add(routeLine)
+        mapView.overlays.addAll(stopMarkers)
+        mapView.overlays.add(busMarker)
+        mapView.invalidate()
+
+        val frames = (durationMillis / 50).coerceAtLeast(1)
+        repeat(frames + 1) { frame ->
+            val progress = frame.toFloat() / frames
+            busMarker.position = pointAlongRoute(points, progress)
+            mapView.invalidate()
+            if (frame < frames) delay(50)
+        }
+    }
+
+    LaunchedEffect(routeStops, startLabel, endLabel, points) {
+        mapView.overlays.removeAll(stopMarkers.toSet())
+        stopMarkers.clear()
         if (routeStops.isEmpty()) {
-            mapView.overlays.add(createStopMarker(mapView, points.first(), "S", startLabel, Color.rgb(7, 103, 200)))
-            mapView.overlays.add(createStopMarker(mapView, points.last(), "D", endLabel, Color.rgb(239, 108, 0)))
+            stopMarkers.add(createStopMarker(mapView, points.first(), "S", startLabel, Color.rgb(7, 103, 200)))
+            stopMarkers.add(createStopMarker(mapView, points.last(), "D", endLabel, Color.rgb(239, 108, 0)))
         } else {
+            val markerPositions = routeStops.mapIndexed { index, _ -> spreadMarkerPosition(routeStops, index) }
             routeStops.forEachIndexed { index, stop ->
                 val prefix = if (stop.type == MapRouteStopType.PICKUP) "P" else "D"
                 val color = when {
@@ -121,7 +141,7 @@ fun MovingBusRoutePanel(
                     else -> Color.rgb(239, 108, 0)
                 }
                 val typeLabel = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
-                mapView.overlays.add(
+                stopMarkers.add(
                     createStopMarker(
                         mapView = mapView,
                         position = markerPositions[index],
@@ -132,18 +152,19 @@ fun MovingBusRoutePanel(
                 )
             }
         }
+        mapView.overlays.remove(busMarker)
+        mapView.overlays.addAll(stopMarkers)
         mapView.overlays.add(busMarker)
+        mapView.invalidate()
+    }
+
+    // 정류장의 현재/완료 상태 변경은 카메라를 건드리지 않습니다.
+    // 새 경로나 정류장 좌표가 들어온 경우에만 전체 운행 구간을 한 번 맞춥니다.
+    LaunchedEffect(points, stopLocationKey) {
+        val markerPositions = routeStops.mapIndexed { index, _ -> spreadMarkerPosition(routeStops, index) }
         val visiblePoints = points + markerPositions
         mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(visiblePoints), true, 110)
         mapView.invalidate()
-
-        val frames = (durationMillis / 50).coerceAtLeast(1)
-        repeat(frames + 1) { frame ->
-            val progress = frame.toFloat() / frames
-            busMarker.position = pointAlongRoute(points, progress)
-            mapView.invalidate()
-            if (frame < frames) delay(50)
-        }
     }
 
     DisposableEffect(mapView) {
