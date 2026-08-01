@@ -18,10 +18,10 @@ GPS는 실제 Android 위치 권한을 요청하고 현재 좌표를 확인합�
 
 ```properties
 MAP_STYLE_URL=https://your-render-map-service.example.com/styles/bus-eodiga/style.json
-API_BASE_URL=https://your-render-api.example.com/
+API_BASE_URL=https://bus-eodiga-api.onrender.com/
 ```
 
-로컬 OSMnx 서버를 Android 에뮬레이터에서 시험할 때는 기본값 `http://10.0.2.2:8000/`을 사용합니다. 실제 휴대전화에서는 노트북과 같은 Wi-Fi에 연결하고 `API_BASE_URL=http://노트북의-LAN-IP:8000/`으로 빌드해야 합니다.
+기본 API 주소는 배포된 Render 서버 `https://bus-eodiga-api.onrender.com/`입니다. 로컬 OSMnx 서버를 Android 에뮬레이터에서 시험할 때는 `API_BASE_URL=http://10.0.2.2:8000/`으로 덮어쓸 수 있습니다. 실제 휴대전화에서 로컬 서버를 사용할 때는 노트북과 같은 Wi-Fi에 연결하고 `API_BASE_URL=http://노트북의-LAN-IP:8000/`으로 빌드해야 합니다.
 
 ## Firebase 등록
 

@@ -21,7 +21,7 @@ android {
             .get()
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
         val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
-            .orElse("http://10.0.2.2:8000/")
+            .orElse("https://bus-eodiga-api.onrender.com/")
             .get()
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
