@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "981873316169",
+    "project_id": "sw-1f7c5",
+    "storage_bucket": "sw-1f7c5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981873316169:android:b6b04a1daaf1ddd9130a98",
+        "android_client_info": {
+          "package_name": "kr.buswhere.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBksmTIzmQaLh_JH35ZGPUme-d36wl_vMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981873316169:android:a841ce84f238b70a130a98",
+        "android_client_info": {
+          "package_name": "sw26.LimIT.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBksmTIzmQaLh_JH35ZGPUme-d36wl_vMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
