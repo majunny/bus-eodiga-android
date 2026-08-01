@@ -75,6 +75,21 @@ class OsmRouteClient(baseUrl: String = BuildConfig.API_BASE_URL) {
             ),
         ),
     )
+
+    /** 공동 DRT 경유지를 순서대로 연결한 실제 도로 좌표를 반환합니다. */
+    suspend fun routeThrough(start: GeoPointDto, stops: List<Place>): List<GeoPointDto> {
+        var cursor = start
+        val combined = mutableListOf<GeoPointDto>()
+        stops.forEach { stop ->
+            val segment = route(cursor, stop).route_coords.mapNotNull { coordinate ->
+                if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+            }
+            if (combined.isNotEmpty() && segment.isNotEmpty()) combined.addAll(segment.drop(1))
+            else combined.addAll(segment)
+            cursor = stop.location
+        }
+        return combined
+    }
 }
 
 private fun String.ensureTrailingSlash(): String = if (endsWith('/')) this else "$this/"

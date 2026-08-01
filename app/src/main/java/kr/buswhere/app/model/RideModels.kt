@@ -47,6 +47,8 @@ data class RideRequest(
     val companionCount: Int = 0,
     val status: RideStatus = RideStatus.DRAFT,
     val assignedVehicleId: String? = null,
+    val demoTripId: String? = null,
+    val matchedPassengerCount: Int = 0,
     val createdAtEpochMillis: Long = 0L,
 )
 
@@ -83,6 +85,13 @@ object DemoPlaces {
         Place("taehwagang-stop", "태화강역 정류장", "울산광역시 남구 산업로 654", GeoPointDto(35.5386, 129.3537), "BUS_STOP"),
         Place("hospital-stop", "울산대학교병원 정류장", "울산광역시 동구 방어진순환도로 877", GeoPointDto(35.5202, 129.4284), "BUS_STOP"),
         Place("sinjeong-market-stop", "신정시장 앞 정류장", "울산광역시 남구 월평로47번길", GeoPointDto(35.5371, 129.3112), "BUS_STOP"),
+    )
+
+    /** 울산 정류소 CSV에서 선정한 대회용 다중 승객 출발지입니다. */
+    val demoPickupStops = listOf(
+        Place("15415", "울산역(종점)", "울산광역시 울주군", GeoPointDto(35.55119682, 129.1388802), "BUS_STOP"),
+        Place("12318", "태화강역(종점)", "울산광역시 남구", GeoPointDto(35.53843654, 129.3528277), "BUS_STOP"),
+        Place("31109", "시청앞", "울산광역시 남구", GeoPointDto(35.53915699, 129.3123405), "BUS_STOP"),
     )
 
     /** 초기 버전의 최근 이용 정류장 예제입니다. */

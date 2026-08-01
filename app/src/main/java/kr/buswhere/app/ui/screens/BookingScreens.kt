@@ -62,6 +62,7 @@ fun PickupScreen(
     isDemoMode: Boolean,
     onUseGps: () -> Unit,
     onUseDemoMode: () -> Unit,
+    onSelectDemoStop: (Place) -> Unit,
     onOpenRecent: () -> Unit,
 ) {
     Column(
@@ -78,11 +79,23 @@ fun PickupScreen(
         )
         ChoiceCard(
             title = "울산 시연 모드",
-            subtitle = "위치만 울산역으로 설정하고 실제 정류장·경로·서버를 사용합니다",
+            subtitle = "실제 정류장 3곳에서 서로 다른 출발지를 선택합니다",
             symbol = "▶",
             selected = isDemoMode,
             onClick = onUseDemoMode,
         )
+        if (isDemoMode) {
+            Text("시연 출발 정류장 선택", style = MaterialTheme.typography.titleLarge)
+            DemoPlaces.demoPickupStops.forEachIndexed { index, stop ->
+                ChoiceCard(
+                    title = stop.name,
+                    subtitle = stop.address,
+                    symbol = "${index + 1}",
+                    selected = selected?.id == stop.id,
+                    onClick = { onSelectDemoStop(stop) },
+                )
+            }
+        }
         ChoiceCard(
             title = "정류장 이름 검색",
             subtitle = "울산 정류장 3,616개에서 검색합니다",

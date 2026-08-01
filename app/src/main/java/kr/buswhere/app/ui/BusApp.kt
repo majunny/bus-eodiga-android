@@ -90,6 +90,7 @@ fun Bus어디가App() {
     var stopsError by remember { mutableStateOf<String?>(null) }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var liveRouteCoordinates by remember { mutableStateOf<List<GeoPointDto>>(emptyList()) }
+    var sharedRouteStops by remember { mutableStateOf<List<Place>>(emptyList()) }
     var isSubmitting by remember { mutableStateOf(false) }
     var isCancelling by remember { mutableStateOf(false) }
     var isRequestingAssignment by remember { mutableStateOf(false) }
@@ -120,6 +121,7 @@ fun Bus어디가App() {
         stopsError = null
         routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
         liveRouteCoordinates = emptyList()
+        sharedRouteStops = emptyList()
         isSubmitting = false
         isCancelling = false
         isRequestingAssignment = false
@@ -147,13 +149,31 @@ fun Bus어디가App() {
                     userId = record.userId,
                     status = record.toRideStatus(),
                     assignedVehicleId = record.assignedVehicleId,
+                    demoTripId = record.demoTripId,
+                    matchedPassengerCount = record.matchedPassengerCount,
                     createdAtEpochMillis = System.currentTimeMillis(),
                 )
                 screen = BusScreen.MATCHING
+                if (isDemoMode) {
+                    isRequestingAssignment = true
+                    realtimeMessage = "2인 DRT 대기열에 참여하고 있습니다…"
+                    val pooled = rideRequestClient.assignDemo(record.requestId)
+                    request = request.copy(
+                        matchedPassengerCount = pooled.matchedPassengerCount,
+                        demoTripId = pooled.demoTripId,
+                    )
+                    realtimeMessage = if (pooled.matchedPassengerCount < 2) {
+                        "다른 승객을 기다리는 중 · 1/2"
+                    } else {
+                        "승객 2명이 모였습니다 · 공동 배차 시작"
+                    }
+                    isRequestingAssignment = false
+                }
             } catch (error: Exception) {
                 showNetworkProblem("버스 호출을 등록하지 못했습니다", error, BusScreen.CONFIRMATION)
             } finally {
                 isSubmitting = false
+                isRequestingAssignment = false
             }
         }
     }
@@ -184,8 +204,16 @@ fun Bus어디가App() {
         realtimeMessage = "Render가 Firestore에 차량 배정을 기록하고 있습니다…"
         coroutineScope.launch {
             try {
-                rideRequestClient.assignDemo(request.requestId)
-                realtimeMessage = "배차 기록 완료 · 실시간 알림을 기다리는 중…"
+                val pooled = rideRequestClient.assignDemo(request.requestId)
+                request = request.copy(
+                    matchedPassengerCount = pooled.matchedPassengerCount,
+                    demoTripId = pooled.demoTripId,
+                )
+                realtimeMessage = if (pooled.matchedPassengerCount < 2) {
+                    "다른 승객을 기다리는 중 · 1/2"
+                } else {
+                    "승객 2명이 모였습니다 · 공동 배차 시작"
+                }
             } catch (error: Exception) {
                 showNetworkProblem("시연 차량을 배정하지 못했습니다", error, BusScreen.MATCHING)
             } finally {
@@ -236,8 +264,9 @@ fun Bus어디가App() {
     }
 
     fun useDemoLocation() {
-        gpsMessage = "울산역 기준 실제 정류장을 불러오고 있습니다…"
-        selectNearestStop(DemoPlaces.ulsanStation.location, demoMode = true)
+        isDemoMode = true
+        request = request.copy(pickup = null)
+        gpsMessage = "아래 실제 정류장 3곳 중 출발지를 선택해 주세요."
     }
 
     DisposableEffect(request.requestId) {
@@ -247,23 +276,46 @@ fun Bus어디가App() {
             val registration = rideRequestObserver.observe(request.requestId) { result ->
                 result.onSuccess { update ->
                     val liveStatus = update.toRideStatus()
+                    val updatedSharedStops = update.demoRouteStops.map { stop ->
+                        Place(
+                            id = stop.placeId,
+                            name = stop.name,
+                            address = "2인 공동 DRT 경유지",
+                            location = GeoPointDto(stop.latitude, stop.longitude),
+                            category = "DRT_STOP",
+                        )
+                    }
+                    if (updatedSharedStops.isNotEmpty()) sharedRouteStops = updatedSharedStops
                     request = request.copy(
                         userId = update.userId,
                         status = liveStatus,
                         assignedVehicleId = update.assignedVehicleId,
+                        demoTripId = update.demoTripId,
+                        matchedPassengerCount = update.matchedPassengerCount,
                     )
-                    realtimeMessage = "Firestore 실시간 연결됨 · ${update.status}"
+                    realtimeMessage = when {
+                        liveStatus == RideStatus.MATCHING && update.matchedPassengerCount == 1 ->
+                            "다른 승객을 기다리는 중 · 1/2"
+                        liveStatus == RideStatus.ASSIGNED ->
+                            "승객 2명이 모였습니다 · 같은 차량으로 공동 배차"
+                        else -> "Firestore 실시간 연결됨 · ${update.status}"
+                    }
                     when (liveStatus) {
                         RideStatus.ASSIGNED, RideStatus.ARRIVING -> {
                             screen = BusScreen.ASSIGNED
-                            request.pickup?.let { pickup ->
-                                coroutineScope.launch {
-                                    runCatching { osmRouteClient.route(demoVehicleStart, pickup) }
-                                        .onSuccess { route ->
-                                            liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
-                                                if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                            coroutineScope.launch {
+                                if (updatedSharedStops.isNotEmpty()) {
+                                    runCatching { osmRouteClient.routeThrough(demoVehicleStart, updatedSharedStops) }
+                                        .onSuccess { liveRouteCoordinates = it }
+                                } else {
+                                    request.pickup?.let { pickup ->
+                                        runCatching { osmRouteClient.route(demoVehicleStart, pickup) }
+                                            .onSuccess { route ->
+                                                liveRouteCoordinates = route.route_coords.mapNotNull { coordinate ->
+                                                    if (coordinate.size >= 2) GeoPointDto(coordinate[0], coordinate[1]) else null
+                                                }
                                             }
-                                        }
+                                    }
                                 }
                             }
                         }
@@ -426,6 +478,11 @@ fun Bus어디가App() {
                     isDemoMode = isDemoMode,
                     onUseGps = ::requestCurrentLocation,
                     onUseDemoMode = ::useDemoLocation,
+                    onSelectDemoStop = { stop ->
+                        isDemoMode = true
+                        request = request.copy(pickup = stop)
+                        gpsMessage = "시연 출발지: ${stop.name}"
+                    },
                     onOpenRecent = {
                         stopQuery = ""
                         availableStops = emptyList()
@@ -480,10 +537,17 @@ fun Bus어디가App() {
                     isCancelling = isCancelling,
                     isRequestingAssignment = isRequestingAssignment,
                     realtimeMessage = realtimeMessage,
+                    matchedPassengerCount = request.matchedPassengerCount,
                     onCancel = ::cancelRideRequest,
                     onRequestDemoAssignment = ::requestDemoAssignment,
                 )
-                BusScreen.ASSIGNED -> AssignedScreen(assignment, request, demoVehicleStart, liveRouteCoordinates)
+                BusScreen.ASSIGNED -> AssignedScreen(
+                    assignment,
+                    request,
+                    demoVehicleStart,
+                    liveRouteCoordinates,
+                    sharedRouteStops,
+                )
                 BusScreen.ON_BOARD -> OnBoardScreen(request, liveRouteCoordinates)
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(

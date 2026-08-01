@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.model.GeoPointDto
+import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.VehicleAssignment
 import kr.buswhere.app.ui.components.FullWidthButton
 import kr.buswhere.app.ui.components.MovingBusRoutePanel
@@ -30,6 +31,7 @@ fun MatchingScreen(
     isCancelling: Boolean,
     isRequestingAssignment: Boolean,
     realtimeMessage: String,
+    matchedPassengerCount: Int,
     onCancel: () -> Unit,
     onRequestDemoAssignment: () -> Unit,
 ) {
@@ -40,7 +42,7 @@ fun MatchingScreen(
         StatusPanel(
             symbol = "▣",
             title = "버스를 찾고 있습니다",
-            description = "울산역 주변의 가장 빠른 BUS어디가 차량을 연결하고 있습니다.",
+            description = "두 승객의 출발지와 목적지를 묶어 한 대의 차량 경로를 계산합니다.",
         )
         Text(
             "평균 배차 시간  약 5분",
@@ -55,9 +57,13 @@ fun MatchingScreen(
             textAlign = TextAlign.Center,
         )
         FullWidthButton(
-            if (isRequestingAssignment) "배차 신호 전송 중…" else "시연: 차량 배정 및 출발",
+            when {
+                isRequestingAssignment -> "2인 DRT 대기열 참여 중…"
+                matchedPassengerCount == 1 -> "다른 승객 대기 중 (1/2)"
+                else -> "2인 DRT 대기열 다시 참여"
+            },
             onRequestDemoAssignment,
-            enabled = !isRequestingAssignment && !isCancelling,
+            enabled = matchedPassengerCount == 0 && !isRequestingAssignment && !isCancelling,
         )
         FullWidthButton(
             text = if (isCancelling) "요청을 취소하고 있습니다…" else "요청 취소",
@@ -75,6 +81,7 @@ fun AssignedScreen(
     request: RideRequest,
     vehicleStart: GeoPointDto,
     routeCoordinates: List<GeoPointDto>,
+    sharedRouteStops: List<Place>,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -95,13 +102,13 @@ fun AssignedScreen(
             Text(assignment.plateNumber, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
         }
         InfoCard("◷", "${assignment.etaMinutes}분 뒤 도착", "현재 남은 정류장: ${assignment.remainingStops}개")
-        InfoCard("⌖", "승차 위치", assignment.boardingGuide)
+        InfoCard("⌖", "내 승차 위치", request.pickup?.name ?: assignment.boardingGuide)
         MovingBusRoutePanel(
-            title = "버스가 승차 정류장으로 출발했습니다",
+            title = if (sharedRouteStops.isNotEmpty()) "2인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
             startLabel = "차고지",
-            endLabel = request.pickup?.name.orEmpty(),
+            endLabel = sharedRouteStops.lastOrNull()?.name ?: request.pickup?.name.orEmpty(),
             startLocation = vehicleStart,
-            endLocation = request.pickup?.location ?: vehicleStart,
+            endLocation = sharedRouteStops.lastOrNull()?.location ?: request.pickup?.location ?: vehicleStart,
             routeCoordinates = routeCoordinates,
             durationMillis = 12_000,
         )
