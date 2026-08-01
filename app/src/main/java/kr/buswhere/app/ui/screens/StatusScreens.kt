@@ -24,7 +24,7 @@ import kr.buswhere.app.ui.components.StatusPanel
 
 /** 호출 후 차량을 찾는 동안 표시하는 화면입니다. */
 @Composable
-fun MatchingScreen(onCancel: () -> Unit, onDemoAssigned: () -> Unit) {
+fun MatchingScreen(isCancelling: Boolean, onCancel: () -> Unit, onDemoAssigned: () -> Unit) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -41,7 +41,12 @@ fun MatchingScreen(onCancel: () -> Unit, onDemoAssigned: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         FullWidthButton("시연: 차량 배정 완료", onDemoAssigned)
-        FullWidthButton("요청 취소", onCancel, danger = true)
+        FullWidthButton(
+            text = if (isCancelling) "요청을 취소하고 있습니다…" else "요청 취소",
+            onClick = onCancel,
+            danger = true,
+            enabled = !isCancelling,
+        )
     }
 }
 

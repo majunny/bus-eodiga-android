@@ -201,6 +201,7 @@ fun DestinationScreen(
 fun ConfirmationScreen(
     request: RideRequest,
     routeStatus: String,
+    isSubmitting: Boolean,
     onPreviewRoute: () -> Unit,
     onSubmit: () -> Unit,
 ) {
@@ -238,7 +239,11 @@ fun ConfirmationScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
-        FullWidthButton("⚡  버스 호출하기", onSubmit)
+        FullWidthButton(
+            text = if (isSubmitting) "호출을 등록하고 있습니다…" else "⚡  버스 호출하기",
+            onClick = onSubmit,
+            enabled = !isSubmitting,
+        )
         MapPlaceholder("선택 경로 미리보기\n${routeStatus}")
     }
 }

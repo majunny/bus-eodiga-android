@@ -21,8 +21,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import java.util.UUID
 import kr.buswhere.app.data.LocationService
 import kr.buswhere.app.data.OsmRouteClient
+import kr.buswhere.app.data.RideRequestClient
+import kr.buswhere.app.data.toRideStatus
 import kr.buswhere.app.model.GeoPointDto
 import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.RideRequest
@@ -68,14 +71,20 @@ fun Bus어디가App() {
     val context = LocalContext.current
     val locationService = remember { LocationService(context.applicationContext) }
     val osmRouteClient = remember { OsmRouteClient() }
+    val rideRequestClient = remember { RideRequestClient() }
     val coroutineScope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(BusScreen.HOME) }
     var request by remember { mutableStateOf(RideRequest()) }
     var gpsMessage by remember { mutableStateOf<String?>(null) }
     var customDestinationName by remember { mutableStateOf("") }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var isCancelling by remember { mutableStateOf(false) }
+    var idempotencyKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var problemTitle by remember { mutableStateOf("인터넷 연결을 확인하세요") }
     var problemDescription by remember { mutableStateOf("네트워크 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.") }
+    var problemActionLabel by remember { mutableStateOf("다시 시도하기") }
+    var problemReturnScreen by remember { mutableStateOf(BusScreen.HOME) }
 
     val assignment = remember {
         VehicleAssignment(
@@ -89,7 +98,61 @@ fun Bus어디가App() {
 
     fun goHome() {
         request = RideRequest()
+        routeStatus = "아직 OSM 경로를 확인하지 않았습니다."
+        isSubmitting = false
+        isCancelling = false
+        idempotencyKey = UUID.randomUUID().toString()
         screen = BusScreen.HOME
+    }
+
+    fun showNetworkProblem(title: String, error: Throwable, returnScreen: BusScreen) {
+        problemTitle = title
+        problemDescription = error.message ?: "서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        problemActionLabel = "다시 시도하기"
+        problemReturnScreen = returnScreen
+        screen = BusScreen.PROBLEM
+    }
+
+    fun submitRideRequest() {
+        if (isSubmitting) return
+        isSubmitting = true
+        coroutineScope.launch {
+            try {
+                val record = rideRequestClient.create(request, idempotencyKey)
+                request = request.copy(
+                    requestId = record.requestId,
+                    userId = record.userId,
+                    status = record.toRideStatus(),
+                    assignedVehicleId = record.assignedVehicleId,
+                    createdAtEpochMillis = System.currentTimeMillis(),
+                )
+                screen = BusScreen.MATCHING
+            } catch (error: Exception) {
+                showNetworkProblem("버스 호출을 등록하지 못했습니다", error, BusScreen.CONFIRMATION)
+            } finally {
+                isSubmitting = false
+            }
+        }
+    }
+
+    fun cancelRideRequest() {
+        if (isCancelling || request.requestId.isBlank()) return
+        isCancelling = true
+        coroutineScope.launch {
+            try {
+                val record = rideRequestClient.cancel(request.requestId)
+                request = request.copy(status = record.toRideStatus())
+                problemTitle = "호출이 취소되었습니다"
+                problemDescription = "배차 대기 요청을 서버에서 안전하게 취소했습니다."
+                problemActionLabel = "새 호출 시작"
+                problemReturnScreen = BusScreen.HOME
+                screen = BusScreen.PROBLEM
+            } catch (error: Exception) {
+                showNetworkProblem("호출을 취소하지 못했습니다", error, BusScreen.MATCHING)
+            } finally {
+                isCancelling = false
+            }
+        }
     }
 
     fun useCurrentLocation() {
@@ -261,6 +324,7 @@ fun Bus어디가App() {
                 BusScreen.CONFIRMATION -> ConfirmationScreen(
                     request = request,
                     routeStatus = routeStatus,
+                    isSubmitting = isSubmitting,
                     onPreviewRoute = {
                         routeStatus = "OSM 서버에서 도로 경로를 계산하고 있습니다…"
                         coroutineScope.launch {
@@ -272,21 +336,11 @@ fun Bus어디가App() {
                             }
                         }
                     },
-                    onSubmit = {
-                        request = request.copy(
-                            status = RideStatus.MATCHING,
-                            createdAtEpochMillis = System.currentTimeMillis(),
-                        )
-                        screen = BusScreen.MATCHING
-                    },
+                    onSubmit = ::submitRideRequest,
                 )
                 BusScreen.MATCHING -> MatchingScreen(
-                    onCancel = {
-                        request = request.copy(status = RideStatus.CANCELLED)
-                        problemTitle = "호출이 취소되었습니다"
-                        problemDescription = "배차 대기 요청을 안전하게 취소했습니다."
-                        screen = BusScreen.PROBLEM
-                    },
+                    isCancelling = isCancelling,
+                    onCancel = ::cancelRideRequest,
                     onDemoAssigned = {
                         request = request.copy(
                             status = RideStatus.ASSIGNED,
@@ -301,8 +355,11 @@ fun Bus어디가App() {
                 BusScreen.PROBLEM -> ProblemScreen(
                     title = problemTitle,
                     description = problemDescription,
-                    actionLabel = "다시 시도하기",
-                    onAction = { screen = BusScreen.MATCHING },
+                    actionLabel = problemActionLabel,
+                    onAction = {
+                        if (problemReturnScreen == BusScreen.HOME) goHome()
+                        else screen = problemReturnScreen
+                    },
                     onHome = ::goHome,
                 )
             }
