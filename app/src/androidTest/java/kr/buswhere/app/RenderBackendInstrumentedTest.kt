@@ -58,7 +58,7 @@ class RenderBackendInstrumentedTest {
     }
 
     @Test
-    fun twoAnonymousUsersShareOneDrtTrip() = runBlocking {
+    fun threeAnonymousUsersShareOneDrtTrip() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val secondApp = FirebaseApp.getApps(context).firstOrNull { it.name == "drt-second-phone" }
             ?: FirebaseApp.initializeApp(
@@ -66,8 +66,15 @@ class RenderBackendInstrumentedTest {
                 requireNotNull(FirebaseOptions.fromResource(context)),
                 "drt-second-phone",
             )
+        val thirdApp = FirebaseApp.getApps(context).firstOrNull { it.name == "drt-third-phone" }
+            ?: FirebaseApp.initializeApp(
+                context,
+                requireNotNull(FirebaseOptions.fromResource(context)),
+                "drt-third-phone",
+            )
         val firstClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance()))
         val secondClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance(secondApp)))
+        val thirdClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance(thirdApp)))
         val firstRequest = RideRequest(
             pickup = DemoPlaces.demoPickupStops[0],
             destination = DemoPlaces.destinations[0],
@@ -76,22 +83,33 @@ class RenderBackendInstrumentedTest {
             pickup = DemoPlaces.demoPickupStops[1],
             destination = DemoPlaces.destinations[1],
         )
+        val thirdRequest = RideRequest(
+            pickup = DemoPlaces.demoPickupStops[2],
+            destination = DemoPlaces.destinations[2],
+        )
 
         val firstCreated = firstClient.create(firstRequest, "drt-phone-one-${UUID.randomUUID()}")
         val secondCreated = secondClient.create(secondRequest, "drt-phone-two-${UUID.randomUUID()}")
-        assertTrue(firstCreated.userId != secondCreated.userId)
+        val thirdCreated = thirdClient.create(thirdRequest, "drt-phone-three-${UUID.randomUUID()}")
+        assertEquals(3, setOf(firstCreated.userId, secondCreated.userId, thirdCreated.userId).size)
 
         val firstWaiting = firstClient.assignDemo(firstCreated.requestId)
         assertEquals("WAITING", firstWaiting.status)
         assertEquals(1, firstWaiting.matchedPassengerCount)
 
-        val secondAssigned = secondClient.assignDemo(secondCreated.requestId)
+        val secondWaiting = secondClient.assignDemo(secondCreated.requestId)
+        assertEquals("WAITING", secondWaiting.status)
+        assertEquals(2, secondWaiting.matchedPassengerCount)
+
+        val thirdAssigned = thirdClient.assignDemo(thirdCreated.requestId)
         val firstAssigned = firstClient.get(firstCreated.requestId)
-        assertEquals("ASSIGNED", secondAssigned.status)
+        val secondAssigned = secondClient.get(secondCreated.requestId)
+        assertEquals("ASSIGNED", thirdAssigned.status)
         assertEquals("ASSIGNED", firstAssigned.status)
-        assertEquals(2, secondAssigned.matchedPassengerCount)
-        assertEquals(firstAssigned.demoTripId, secondAssigned.demoTripId)
-        assertEquals(firstAssigned.assignedVehicleId, secondAssigned.assignedVehicleId)
-        assertEquals(4, secondAssigned.demoRouteStops.size)
+        assertEquals("ASSIGNED", secondAssigned.status)
+        assertEquals(3, thirdAssigned.matchedPassengerCount)
+        assertEquals(firstAssigned.demoTripId, thirdAssigned.demoTripId)
+        assertEquals(firstAssigned.assignedVehicleId, thirdAssigned.assignedVehicleId)
+        assertEquals(6, thirdAssigned.demoRouteStops.size)
     }
 }

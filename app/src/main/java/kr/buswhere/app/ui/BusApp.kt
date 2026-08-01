@@ -151,19 +151,21 @@ fun Bus어디가App() {
                     assignedVehicleId = record.assignedVehicleId,
                     demoTripId = record.demoTripId,
                     matchedPassengerCount = record.matchedPassengerCount,
+                    demoGroupSize = record.demoGroupSize,
                     createdAtEpochMillis = System.currentTimeMillis(),
                 )
                 screen = BusScreen.MATCHING
                 if (isDemoMode) {
                     isRequestingAssignment = true
-                    realtimeMessage = "2인 DRT 대기열에 참여하고 있습니다…"
+                    realtimeMessage = "다인 DRT 대기열에 참여하고 있습니다…"
                     val pooled = rideRequestClient.assignDemo(record.requestId)
                     request = request.copy(
                         matchedPassengerCount = pooled.matchedPassengerCount,
                         demoTripId = pooled.demoTripId,
+                        demoGroupSize = pooled.demoGroupSize,
                     )
-                    realtimeMessage = if (pooled.matchedPassengerCount < 2) {
-                        "다른 승객을 기다리는 중 · 1/2"
+                    realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
+                        "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
                     } else {
                         "승객 2명이 모였습니다 · 공동 배차 시작"
                     }
@@ -208,9 +210,10 @@ fun Bus어디가App() {
                 request = request.copy(
                     matchedPassengerCount = pooled.matchedPassengerCount,
                     demoTripId = pooled.demoTripId,
+                    demoGroupSize = pooled.demoGroupSize,
                 )
-                realtimeMessage = if (pooled.matchedPassengerCount < 2) {
-                    "다른 승객을 기다리는 중 · 1/2"
+                realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
+                    "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
                 } else {
                     "승객 2명이 모였습니다 · 공동 배차 시작"
                 }
@@ -280,7 +283,7 @@ fun Bus어디가App() {
                         Place(
                             id = stop.placeId,
                             name = stop.name,
-                            address = "2인 공동 DRT 경유지",
+                            address = "다인 공동 DRT 경유지",
                             location = GeoPointDto(stop.latitude, stop.longitude),
                             category = "DRT_STOP",
                         )
@@ -292,10 +295,11 @@ fun Bus어디가App() {
                         assignedVehicleId = update.assignedVehicleId,
                         demoTripId = update.demoTripId,
                         matchedPassengerCount = update.matchedPassengerCount,
+                        demoGroupSize = update.demoGroupSize,
                     )
                     realtimeMessage = when {
-                        liveStatus == RideStatus.MATCHING && update.matchedPassengerCount == 1 ->
-                            "다른 승객을 기다리는 중 · 1/2"
+                        liveStatus == RideStatus.MATCHING && update.matchedPassengerCount > 0 ->
+                            "다른 승객을 기다리는 중 · ${update.matchedPassengerCount}/${update.demoGroupSize}"
                         liveStatus == RideStatus.ASSIGNED ->
                             "승객 2명이 모였습니다 · 같은 차량으로 공동 배차"
                         else -> "Firestore 실시간 연결됨 · ${update.status}"
@@ -538,6 +542,7 @@ fun Bus어디가App() {
                     isRequestingAssignment = isRequestingAssignment,
                     realtimeMessage = realtimeMessage,
                     matchedPassengerCount = request.matchedPassengerCount,
+                    demoGroupSize = request.demoGroupSize,
                     onCancel = ::cancelRideRequest,
                     onRequestDemoAssignment = ::requestDemoAssignment,
                 )

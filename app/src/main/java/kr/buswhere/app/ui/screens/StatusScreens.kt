@@ -34,6 +34,7 @@ fun MatchingScreen(
     isRequestingAssignment: Boolean,
     realtimeMessage: String,
     matchedPassengerCount: Int,
+    demoGroupSize: Int,
     onCancel: () -> Unit,
     onRequestDemoAssignment: () -> Unit,
 ) {
@@ -44,7 +45,7 @@ fun MatchingScreen(
         StatusPanel(
             symbol = "▣",
             title = "버스를 찾고 있습니다",
-            description = "두 승객의 출발지와 목적지를 묶어 한 대의 차량 경로를 계산합니다.",
+            description = "여러 승객의 출발지와 목적지를 묶어 한 대의 차량 경로를 계산합니다.",
         )
         Text(
             "평균 배차 시간  약 5분",
@@ -60,9 +61,9 @@ fun MatchingScreen(
         )
         FullWidthButton(
             when {
-                isRequestingAssignment -> "2인 DRT 대기열 참여 중…"
-                matchedPassengerCount == 1 -> "다른 승객 대기 중 (1/2)"
-                else -> "2인 DRT 대기열 다시 참여"
+                isRequestingAssignment -> "다인 DRT 대기열 참여 중…"
+                matchedPassengerCount > 0 -> "다른 승객 대기 중 ($matchedPassengerCount/$demoGroupSize)"
+                else -> "다인 DRT 대기열 다시 참여"
             },
             onRequestDemoAssignment,
             enabled = matchedPassengerCount == 0 && !isRequestingAssignment && !isCancelling,
@@ -106,7 +107,7 @@ fun AssignedScreen(
         InfoCard("◷", "${assignment.etaMinutes}분 뒤 도착", "현재 남은 정류장: ${assignment.remainingStops}개")
         InfoCard("⌖", "내 승차 위치", request.pickup?.name ?: assignment.boardingGuide)
         MovingBusRoutePanel(
-            title = if (sharedRouteStops.isNotEmpty()) "2인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
+            title = if (sharedRouteStops.isNotEmpty()) "다인 공동 DRT 운행이 시작됐습니다" else "버스가 승차 정류장으로 출발했습니다",
             startLabel = "차고지",
             endLabel = sharedRouteStops.lastOrNull()?.name ?: request.pickup?.name.orEmpty(),
             startLocation = vehicleStart,

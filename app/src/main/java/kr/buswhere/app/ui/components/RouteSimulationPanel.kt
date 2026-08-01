@@ -28,6 +28,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kr.buswhere.app.model.GeoPointDto
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -97,6 +101,7 @@ fun MovingBusRoutePanel(
     }
 
     LaunchedEffect(points, routeStops) {
+        val markerPositions = routeStops.mapIndexed { index, _ -> spreadMarkerPosition(routeStops, index) }
         routeLine.setPoints(points)
         busMarker.position = points.first()
         mapView.overlays.clear()
@@ -105,14 +110,14 @@ fun MovingBusRoutePanel(
             mapView.overlays.add(createStopMarker(mapView, points.first(), "S", startLabel, Color.rgb(7, 103, 200)))
             mapView.overlays.add(createStopMarker(mapView, points.last(), "D", endLabel, Color.rgb(239, 108, 0)))
         } else {
-            routeStops.forEach { stop ->
+            routeStops.forEachIndexed { index, stop ->
                 val prefix = if (stop.type == MapRouteStopType.PICKUP) "P" else "D"
                 val color = if (stop.type == MapRouteStopType.PICKUP) Color.rgb(7, 103, 200) else Color.rgb(239, 108, 0)
                 val typeLabel = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
                 mapView.overlays.add(
                     createStopMarker(
                         mapView = mapView,
-                        position = GeoPoint(stop.location.latitude, stop.location.longitude),
+                        position = markerPositions[index],
                         symbol = "$prefix${stop.order}",
                         title = "$typeLabel ${stop.order} · ${stop.label}",
                         color = color,
@@ -121,7 +126,8 @@ fun MovingBusRoutePanel(
             }
         }
         mapView.overlays.add(busMarker)
-        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(points), true, 90)
+        val visiblePoints = points + markerPositions
+        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(visiblePoints), true, 110)
         mapView.invalidate()
 
         val frames = (durationMillis / 50).coerceAtLeast(1)
@@ -246,4 +252,25 @@ private fun createStopMarker(
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         setTitle(title)
     }
+}
+
+/** 같은 정류장을 선택한 여러 승객의 P/D 마커가 서로 가려지지 않게 펼칩니다. */
+private fun spreadMarkerPosition(stops: List<MapRouteStop>, index: Int): GeoPoint {
+    val current = stops[index]
+    val overlapping = stops.indices.filter { candidateIndex ->
+        val candidate = stops[candidateIndex]
+        abs(candidate.location.latitude - current.location.latitude) < 0.00005 &&
+            abs(candidate.location.longitude - current.location.longitude) < 0.00005
+    }
+    if (overlapping.size == 1) {
+        return GeoPoint(current.location.latitude, current.location.longitude)
+    }
+    val position = overlapping.indexOf(index)
+    val angle = (2.0 * PI * position / overlapping.size) - PI / 2.0
+    val radius = 0.00016
+    val longitudeScale = cos(current.location.latitude * PI / 180.0).coerceAtLeast(0.2)
+    return GeoPoint(
+        current.location.latitude + radius * sin(angle),
+        current.location.longitude + radius * cos(angle) / longitudeScale,
+    )
 }

@@ -49,6 +49,7 @@ data class RideRequest(
     val assignedVehicleId: String? = null,
     val demoTripId: String? = null,
     val matchedPassengerCount: Int = 0,
+    val demoGroupSize: Int = 3,
     val createdAtEpochMillis: Long = 0L,
 )
 
