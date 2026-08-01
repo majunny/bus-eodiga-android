@@ -29,6 +29,7 @@ import kr.buswhere.app.data.OsmRouteClient
 import kr.buswhere.app.data.RideRequestClient
 import kr.buswhere.app.data.toRideStatus
 import kr.buswhere.app.model.GeoPointDto
+import kr.buswhere.app.model.DemoPlaces
 import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.model.RideStatus
@@ -42,6 +43,7 @@ import kr.buswhere.app.ui.screens.ConfirmationScreen
 import kr.buswhere.app.ui.screens.DestinationScreen
 import kr.buswhere.app.ui.screens.DestinationMapScreen
 import kr.buswhere.app.ui.screens.HomeScreen
+import kr.buswhere.app.ui.screens.HelpScreen
 import kr.buswhere.app.ui.screens.MatchingScreen
 import kr.buswhere.app.ui.screens.OnBoardScreen
 import kr.buswhere.app.ui.screens.PickupScreen
@@ -66,6 +68,7 @@ private enum class BusScreen {
     ON_BOARD,
     COMPLETED,
     PROBLEM,
+    HELP,
 }
 
 /** Stitch 디자인을 연결한 앱 루트이자 임시 시연 상태 관리자입니다. */
@@ -78,8 +81,10 @@ fun Bus어디가App() {
     val rideRequestClient = remember { RideRequestClient() }
     val coroutineScope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(BusScreen.HOME) }
+    var previousScreen by remember { mutableStateOf(BusScreen.HOME) }
     var request by remember { mutableStateOf(RideRequest()) }
     var gpsMessage by remember { mutableStateOf<String?>(null) }
+    var isDemoMode by remember { mutableStateOf(false) }
     var availableStops by remember { mutableStateOf<List<Place>>(emptyList()) }
     var stopQuery by remember { mutableStateOf("") }
     var stopsLoading by remember { mutableStateOf(false) }
@@ -107,6 +112,7 @@ fun Bus어디가App() {
     fun goHome() {
         request = RideRequest()
         gpsMessage = null
+        isDemoMode = false
         availableStops = emptyList()
         stopQuery = ""
         stopsError = null
@@ -167,36 +173,50 @@ fun Bus어디가App() {
         }
     }
 
+    fun selectNearestStop(location: GeoPointDto, demoMode: Boolean) {
+        isDemoMode = demoMode
+        stopsLoading = true
+        coroutineScope.launch {
+            try {
+                val nearby = busStopClient.nearby(location.latitude, location.longitude)
+                availableStops = nearby
+                val nearest = nearby.firstOrNull()
+                request = request.copy(pickup = nearest)
+                gpsMessage = nearest?.let {
+                    val distance = it.address.substringAfterLast(" · ")
+                    if (demoMode) "시연 위치: 울산역 · ${it.name} ($distance)"
+                    else "가장 가까운 정류장: ${it.name} ($distance)"
+                } ?: "현재 위치 반경 2km에 정류장이 없습니다."
+                stopsError = null
+            } catch (error: Exception) {
+                gpsMessage = "주변 정류장을 불러오지 못했습니다."
+                stopsError = error.message
+            } finally {
+                stopsLoading = false
+            }
+        }
+    }
+
     fun useCurrentLocation() {
+        isDemoMode = false
         gpsMessage = "현재 위치를 확인하고 있습니다…"
         locationService.getCurrentLocation { result ->
             result.onSuccess { location ->
                 if (location.isInsideUlsan()) {
-                    stopsLoading = true
-                    coroutineScope.launch {
-                        try {
-                            val nearby = busStopClient.nearby(location.latitude, location.longitude)
-                            availableStops = nearby
-                            val nearest = nearby.firstOrNull()
-                            request = request.copy(pickup = nearest)
-                            gpsMessage = nearest?.let { "가장 가까운 정류장: ${it.name} (${it.address.substringAfterLast(" · ")})" }
-                                ?: "현재 위치 반경 2km에 정류장이 없습니다."
-                            stopsError = null
-                        } catch (error: Exception) {
-                            gpsMessage = "주변 정류장을 불러오지 못했습니다."
-                            stopsError = error.message
-                        } finally {
-                            stopsLoading = false
-                        }
-                    }
+                    selectNearestStop(location, demoMode = false)
                 } else {
                     request = request.copy(pickup = null)
-                    gpsMessage = "GPS 정상 작동: 현재는 울산 서비스 지역 밖입니다. 정류장 검색이나 지도를 이용해 주세요."
+                    gpsMessage = "GPS 정상 작동: 현재는 울산 서비스 지역 밖입니다. 울산 시연 모드를 이용해 주세요."
                 }
             }.onFailure { error ->
                 gpsMessage = error.message ?: "현재 위치를 확인하지 못했습니다."
             }
         }
+    }
+
+    fun useDemoLocation() {
+        gpsMessage = "울산역 기준 실제 정류장을 불러오고 있습니다…"
+        selectNearestStop(DemoPlaces.ulsanStation.location, demoMode = true)
     }
 
     fun openStopMap() {
@@ -270,7 +290,17 @@ fun Bus어디가App() {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { BusHeader(onHome = ::goHome) },
+        topBar = {
+            BusHeader(
+                onHome = ::goHome,
+                onHelp = {
+                    if (screen != BusScreen.HELP) {
+                        previousScreen = screen
+                        screen = BusScreen.HELP
+                    }
+                },
+            )
+        },
         bottomBar = {
             when (screen) {
                 BusScreen.PICKUP -> BottomNavigationBar(
@@ -345,7 +375,9 @@ fun Bus어디가App() {
                 BusScreen.PICKUP -> PickupScreen(
                     selected = request.pickup,
                     gpsMessage = gpsMessage,
+                    isDemoMode = isDemoMode,
                     onUseGps = ::requestCurrentLocation,
+                    onUseDemoMode = ::useDemoLocation,
                     onOpenRecent = {
                         stopQuery = ""
                         availableStops = emptyList()
@@ -401,6 +433,7 @@ fun Bus어디가App() {
                 BusScreen.CONFIRMATION -> ConfirmationScreen(
                     request = request,
                     routeStatus = routeStatus,
+                    isDemoMode = isDemoMode,
                     isSubmitting = isSubmitting,
                     onPreviewRoute = {
                         routeStatus = "OSM 서버에서 도로 경로를 계산하고 있습니다…"
@@ -439,6 +472,7 @@ fun Bus어디가App() {
                     },
                     onHome = ::goHome,
                 )
+                BusScreen.HELP -> HelpScreen(onBack = { screen = previousScreen })
             }
         }
     }

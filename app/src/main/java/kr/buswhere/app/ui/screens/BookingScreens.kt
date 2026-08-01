@@ -51,14 +51,6 @@ fun HomeScreen(
             )
         }
         FullWidthButton("새로운 목적지 선택", onStartBooking)
-        Button(
-            onClick = {},
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
-        ) {
-            Text("보호자 도움 요청")
-        }
     }
 }
 
@@ -67,7 +59,9 @@ fun HomeScreen(
 fun PickupScreen(
     selected: Place?,
     gpsMessage: String?,
+    isDemoMode: Boolean,
     onUseGps: () -> Unit,
+    onUseDemoMode: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenMap: () -> Unit,
 ) {
@@ -80,14 +74,21 @@ fun PickupScreen(
             title = "현재 위치 주변 정류장",
             subtitle = gpsMessage ?: "GPS로 가장 가까운 실제 정류장을 찾습니다",
             symbol = "◎",
-            selected = selected?.category == "BUS_STOP" && gpsMessage != null,
+            selected = selected?.category == "BUS_STOP" && gpsMessage != null && !isDemoMode,
             onClick = onUseGps,
+        )
+        ChoiceCard(
+            title = "울산 시연 모드",
+            subtitle = "위치만 울산역으로 설정하고 실제 정류장·경로·서버를 사용합니다",
+            symbol = "▶",
+            selected = isDemoMode,
+            onClick = onUseDemoMode,
         )
         ChoiceCard(
             title = "정류장 이름 검색",
             subtitle = "울산 정류장 3,616개에서 검색합니다",
             symbol = "▣",
-            selected = selected != null && selected.category == "BUS_STOP",
+            selected = selected?.category == "BUS_STOP" && gpsMessage == null && !isDemoMode,
             onClick = onOpenRecent,
         )
         ChoiceCard(
@@ -201,6 +202,7 @@ fun DestinationScreen(
 fun ConfirmationScreen(
     request: RideRequest,
     routeStatus: String,
+    isDemoMode: Boolean,
     isSubmitting: Boolean,
     onPreviewRoute: () -> Unit,
     onSubmit: () -> Unit,
@@ -211,6 +213,13 @@ fun ConfirmationScreen(
     ) {
         Text("호출 내용을 확인하세요", style = MaterialTheme.typography.headlineMedium)
         Text("입력하신 정보가 맞는지 확인해 주세요.", style = MaterialTheme.typography.bodyLarge)
+        if (isDemoMode) {
+            Text(
+                "시연 모드: 현재 위치만 울산역 기준이며 정류장·OSM 경로·호출 API는 실제 데이터를 사용합니다.",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -27,6 +27,8 @@ API_BASE_URL=https://bus-eodiga-api.onrender.com/
 
 출발 정류장은 앱에 고정하지 않습니다. 울산광역시 정류소 위치 정보 3,616개를 제공하는 Render의 `/v1/bus-stops`와 `/v1/bus-stops/nearby`를 사용합니다. GPS 선택 시 반경 2km의 정류장을 거리순으로 불러와 가장 가까운 정류장을 선택하며, 정류장명 검색과 지도 선택으로 변경할 수 있습니다.
 
+서울 등 울산 서비스 지역 밖에서 발표할 때는 탑승 위치 화면의 `울산 시연 모드`를 사용합니다. 위치 입력만 울산역 좌표로 바꾸며 실제 정류소 API, OSM 도로 경로, Firebase 인증, Render 호출과 Firestore 저장은 그대로 사용합니다. 상단 `도움말`에서 일반 사용 순서와 시연 모드 범위를 확인할 수 있습니다.
+
 ## Firebase 등록
 
 Firebase Console에서 Android 앱을 추가할 때 패키지명으로 다음 값을 정확히 입력합니다.
