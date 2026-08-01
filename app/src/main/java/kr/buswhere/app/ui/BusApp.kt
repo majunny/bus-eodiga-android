@@ -548,7 +548,7 @@ fun Bus어디가App() {
                     liveRouteCoordinates,
                     sharedRouteStops,
                 )
-                BusScreen.ON_BOARD -> OnBoardScreen(request, liveRouteCoordinates)
+                BusScreen.ON_BOARD -> OnBoardScreen(request, liveRouteCoordinates, sharedRouteStops)
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(
                     title = problemTitle,

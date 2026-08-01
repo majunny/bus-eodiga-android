@@ -37,6 +37,15 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
+data class MapRouteStop(
+    val label: String,
+    val location: GeoPointDto,
+    val type: MapRouteStopType,
+    val order: Int,
+)
+
+enum class MapRouteStopType { PICKUP, DROPOFF }
+
 /** 실제 OpenStreetMap 위에서 도로 경로와 움직이는 버스 위치를 표시합니다. */
 @SuppressLint("ClickableViewAccessibility")
 @Composable
@@ -47,6 +56,7 @@ fun MovingBusRoutePanel(
     startLocation: GeoPointDto,
     endLocation: GeoPointDto,
     routeCoordinates: List<GeoPointDto> = emptyList(),
+    routeStops: List<MapRouteStop> = emptyList(),
     durationMillis: Int = 12_000,
 ) {
     val context = LocalContext.current
@@ -85,20 +95,31 @@ fun MovingBusRoutePanel(
             setTitle("BUS어디가 시연 차량")
         }
     }
-    val startMarker = remember { Marker(mapView) }
-    val endMarker = remember { Marker(mapView) }
 
-    LaunchedEffect(points) {
+    LaunchedEffect(points, routeStops) {
         routeLine.setPoints(points)
-        startMarker.position = points.first()
-        startMarker.setTitle(startLabel)
-        endMarker.position = points.last()
-        endMarker.setTitle(endLabel)
         busMarker.position = points.first()
         mapView.overlays.clear()
         mapView.overlays.add(routeLine)
-        mapView.overlays.add(startMarker)
-        mapView.overlays.add(endMarker)
+        if (routeStops.isEmpty()) {
+            mapView.overlays.add(createStopMarker(mapView, points.first(), "S", startLabel, Color.rgb(7, 103, 200)))
+            mapView.overlays.add(createStopMarker(mapView, points.last(), "D", endLabel, Color.rgb(239, 108, 0)))
+        } else {
+            routeStops.forEach { stop ->
+                val prefix = if (stop.type == MapRouteStopType.PICKUP) "P" else "D"
+                val color = if (stop.type == MapRouteStopType.PICKUP) Color.rgb(7, 103, 200) else Color.rgb(239, 108, 0)
+                val typeLabel = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
+                mapView.overlays.add(
+                    createStopMarker(
+                        mapView = mapView,
+                        position = GeoPoint(stop.location.latitude, stop.location.longitude),
+                        symbol = "$prefix${stop.order}",
+                        title = "$typeLabel ${stop.order} · ${stop.label}",
+                        color = color,
+                    ),
+                )
+            }
+        }
         mapView.overlays.add(busMarker)
         mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(points), true, 90)
         mapView.invalidate()
@@ -145,6 +166,27 @@ fun MovingBusRoutePanel(
             Text(startLabel, style = MaterialTheme.typography.bodySmall)
             Text("→  $endLabel", style = MaterialTheme.typography.bodySmall)
         }
+        if (routeStops.isNotEmpty()) {
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("공동 DRT 운행 순서", style = MaterialTheme.typography.titleMedium)
+                routeStops.forEach { stop ->
+                    val type = if (stop.type == MapRouteStopType.PICKUP) "승차" else "하차"
+                    val color = if (stop.type == MapRouteStopType.PICKUP) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        ComposeColor(0xFFEF6C00)
+                    }
+                    Text(
+                        "${if (stop.type == MapRouteStopType.PICKUP) "P" else "D"}${stop.order}  $type · ${stop.label}",
+                        color = color,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -174,4 +216,34 @@ private fun createBusMarker(density: Float): BitmapDrawable {
     paint.textAlign = Paint.Align.CENTER
     canvas.drawText("B", size / 2f, size * .67f, paint)
     return BitmapDrawable(null, bitmap)
+}
+
+private fun createStopMarker(
+    mapView: MapView,
+    position: GeoPoint,
+    symbol: String,
+    title: String,
+    color: Int,
+): Marker {
+    val density = mapView.resources.displayMetrics.density
+    val size = (42 * density).toInt()
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = Color.WHITE
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size * .49f, paint)
+    paint.color = color
+    canvas.drawCircle(size / 2f, size / 2f, size * .42f, paint)
+    paint.color = Color.WHITE
+    paint.textSize = size * .34f
+    paint.typeface = Typeface.DEFAULT_BOLD
+    paint.textAlign = Paint.Align.CENTER
+    canvas.drawText(symbol, size / 2f, size * .63f, paint)
+    return Marker(mapView).apply {
+        this.position = position
+        icon = BitmapDrawable(mapView.resources, bitmap)
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setTitle(title)
+    }
 }

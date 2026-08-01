@@ -23,6 +23,8 @@ import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.VehicleAssignment
 import kr.buswhere.app.ui.components.FullWidthButton
 import kr.buswhere.app.ui.components.MovingBusRoutePanel
+import kr.buswhere.app.ui.components.MapRouteStop
+import kr.buswhere.app.ui.components.MapRouteStopType
 import kr.buswhere.app.ui.components.StatusPanel
 
 /** 호출 후 차량을 찾는 동안 표시하는 화면입니다. */
@@ -110,6 +112,7 @@ fun AssignedScreen(
             startLocation = vehicleStart,
             endLocation = sharedRouteStops.lastOrNull()?.location ?: request.pickup?.location ?: vehicleStart,
             routeCoordinates = routeCoordinates,
+            routeStops = sharedRouteStops.toMapRouteStops(),
             durationMillis = 12_000,
         )
     }
@@ -117,7 +120,11 @@ fun AssignedScreen(
 
 /** 탑승 후 목적지까지의 진행 정보를 표시합니다. */
 @Composable
-fun OnBoardScreen(request: RideRequest, routeCoordinates: List<GeoPointDto>) {
+fun OnBoardScreen(
+    request: RideRequest,
+    routeCoordinates: List<GeoPointDto>,
+    sharedRouteStops: List<Place>,
+) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -157,6 +164,7 @@ fun OnBoardScreen(request: RideRequest, routeCoordinates: List<GeoPointDto>) {
             startLocation = request.pickup?.location ?: GeoPointDto(35.5514, 129.1387),
             endLocation = request.destination?.location ?: GeoPointDto(35.5202, 129.4284),
             routeCoordinates = routeCoordinates,
+            routeStops = sharedRouteStops.toMapRouteStops(),
             durationMillis = 15_000,
         )
         FullWidthButton("긴급 도움 요청", {}, danger = true)
@@ -165,6 +173,20 @@ fun OnBoardScreen(request: RideRequest, routeCoordinates: List<GeoPointDto>) {
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun List<Place>.toMapRouteStops(): List<MapRouteStop> {
+    if (isEmpty()) return emptyList()
+    val pickupCount = size / 2
+    return mapIndexed { index, place ->
+        val isPickup = index < pickupCount
+        MapRouteStop(
+            label = place.name,
+            location = place.location,
+            type = if (isPickup) MapRouteStopType.PICKUP else MapRouteStopType.DROPOFF,
+            order = if (isPickup) index + 1 else index - pickupCount + 1,
         )
     }
 }
