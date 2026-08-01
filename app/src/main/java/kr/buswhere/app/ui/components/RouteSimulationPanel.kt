@@ -33,7 +33,6 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 import kr.buswhere.app.model.GeoPointDto
-import kr.buswhere.app.model.Place
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -52,108 +51,6 @@ data class MapRouteStop(
 )
 
 enum class MapRouteStopType { PICKUP, DROPOFF }
-
-/** 제공된 시연 정류장을 실제 OSM 위에 표시하고 마커 탭으로 출발지를 선택합니다. */
-@SuppressLint("ClickableViewAccessibility")
-@Composable
-fun DemoStopsMapPanel(
-    stops: List<Place>,
-    selectedStopId: String?,
-    onSelectStop: (Place) -> Unit,
-) {
-    val context = LocalContext.current
-    val mapView = remember {
-        Configuration.getInstance().userAgentValue = context.packageName
-        MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            minZoomLevel = 5.0
-            maxZoomLevel = 19.0
-            setOnTouchListener { view, event ->
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN,
-                    MotionEvent.ACTION_POINTER_DOWN,
-                    MotionEvent.ACTION_MOVE,
-                    -> view.parent?.requestDisallowInterceptTouchEvent(true)
-
-                    MotionEvent.ACTION_UP,
-                    MotionEvent.ACTION_CANCEL,
-                    -> view.parent?.requestDisallowInterceptTouchEvent(false)
-                }
-                false
-            }
-        }
-    }
-    val markers = remember { mutableListOf<Marker>() }
-    val stopLocationKey = stops.joinToString("|") { stop ->
-        "${stop.id}:${stop.location.latitude}:${stop.location.longitude}"
-    }
-
-    LaunchedEffect(stops, selectedStopId) {
-        mapView.overlays.removeAll(markers.toSet())
-        markers.clear()
-        stops.forEachIndexed { index, stop ->
-            val isOutsideUlsan = stop.location.latitude !in 35.30..35.80 ||
-                stop.location.longitude !in 129.00..129.50
-            val color = when {
-                stop.id == selectedStopId -> Color.rgb(0, 150, 90)
-                isOutsideUlsan -> Color.rgb(239, 108, 0)
-                else -> Color.rgb(7, 103, 200)
-            }
-            markers.add(
-                createStopMarker(
-                    mapView = mapView,
-                    position = GeoPoint(stop.location.latitude, stop.location.longitude),
-                    symbol = "${index + 1}",
-                    title = "${stop.name} · ${stop.address}",
-                    color = color,
-                ).apply {
-                    setOnMarkerClickListener { marker, _ ->
-                        onSelectStop(stop)
-                        marker.showInfoWindow()
-                        true
-                    }
-                },
-            )
-        }
-        mapView.overlays.addAll(markers)
-        mapView.invalidate()
-    }
-
-    LaunchedEffect(stopLocationKey) {
-        val points = stops.map { stop -> GeoPoint(stop.location.latitude, stop.location.longitude) }
-        if (points.isNotEmpty()) {
-            mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(points), true, 100)
-            mapView.invalidate()
-        }
-    }
-
-    DisposableEffect(mapView) {
-        mapView.onResume()
-        onDispose {
-            mapView.onPause()
-            mapView.onDetach()
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(ComposeColor.White, RoundedCornerShape(18.dp)),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text("OSM 정류장 지도", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
-            Text("마커를 누르면 출발지로 선택됩니다 · 주황색은 부산 정류장", style = MaterialTheme.typography.bodyMedium)
-        }
-        AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(360.dp),
-            factory = { mapView },
-        )
-    }
-}
 
 /** 실제 OpenStreetMap 위에서 도로 경로와 움직이는 버스 위치를 표시합니다. */
 @SuppressLint("ClickableViewAccessibility")
