@@ -1,8 +1,13 @@
 package kr.buswhere.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ApplicationProvider
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+import com.google.firebase.auth.FirebaseAuth
 import java.util.UUID
 import kr.buswhere.app.data.BusStopClient
+import kr.buswhere.app.data.FirebaseSession
 import kr.buswhere.app.data.RideRequestClient
 import kr.buswhere.app.model.DemoPlaces
 import kr.buswhere.app.model.MobilitySupport
@@ -50,5 +55,43 @@ class RenderBackendInstrumentedTest {
             assertEquals("CANCELLED", cancelled.status)
             assertNotNull(cancelled.updatedAt)
         }
+    }
+
+    @Test
+    fun twoAnonymousUsersShareOneDrtTrip() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val secondApp = FirebaseApp.getApps(context).firstOrNull { it.name == "drt-second-phone" }
+            ?: FirebaseApp.initializeApp(
+                context,
+                requireNotNull(FirebaseOptions.fromResource(context)),
+                "drt-second-phone",
+            )
+        val firstClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance()))
+        val secondClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance(secondApp)))
+        val firstRequest = RideRequest(
+            pickup = DemoPlaces.demoPickupStops[0],
+            destination = DemoPlaces.destinations[0],
+        )
+        val secondRequest = RideRequest(
+            pickup = DemoPlaces.demoPickupStops[1],
+            destination = DemoPlaces.destinations[1],
+        )
+
+        val firstCreated = firstClient.create(firstRequest, "drt-phone-one-${UUID.randomUUID()}")
+        val secondCreated = secondClient.create(secondRequest, "drt-phone-two-${UUID.randomUUID()}")
+        assertTrue(firstCreated.userId != secondCreated.userId)
+
+        val firstWaiting = firstClient.assignDemo(firstCreated.requestId)
+        assertEquals("WAITING", firstWaiting.status)
+        assertEquals(1, firstWaiting.matchedPassengerCount)
+
+        val secondAssigned = secondClient.assignDemo(secondCreated.requestId)
+        val firstAssigned = firstClient.get(firstCreated.requestId)
+        assertEquals("ASSIGNED", secondAssigned.status)
+        assertEquals("ASSIGNED", firstAssigned.status)
+        assertEquals(2, secondAssigned.matchedPassengerCount)
+        assertEquals(firstAssigned.demoTripId, secondAssigned.demoTripId)
+        assertEquals(firstAssigned.assignedVehicleId, secondAssigned.assignedVehicleId)
+        assertEquals(4, secondAssigned.demoRouteStops.size)
     }
 }
