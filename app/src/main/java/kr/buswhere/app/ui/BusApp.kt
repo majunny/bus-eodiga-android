@@ -289,7 +289,7 @@ fun Bus어디가App() {
     fun useDemoLocation() {
         isDemoMode = true
         request = request.copy(pickup = null)
-        gpsMessage = "아래 실제 정류장 3곳 중 출발지를 선택해 주세요."
+        gpsMessage = "OSM 지도나 목록에서 시연 정류장 6곳 중 출발지를 선택해 주세요."
     }
 
     fun loadSharedRouteIfNeeded(tripId: String?, stops: List<Place>) {

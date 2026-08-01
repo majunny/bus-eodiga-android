@@ -23,6 +23,7 @@ import kr.buswhere.app.model.MobilitySupport
 import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.ui.components.ChoiceCard
+import kr.buswhere.app.ui.components.DemoStopsMapPanel
 import kr.buswhere.app.ui.components.FullWidthButton
 
 /** 앱 첫 화면으로 자주 가는 장소와 새 호출 진입점을 제공합니다. */
@@ -80,13 +81,18 @@ fun PickupScreen(
         )
         ChoiceCard(
             title = "울산 시연 모드",
-            subtitle = "실제 정류장 3곳에서 서로 다른 출발지를 선택합니다",
+            subtitle = "OSM 지도에서 제공된 정류장 6곳을 선택합니다",
             symbol = "▶",
             selected = isDemoMode,
             onClick = onUseDemoMode,
         )
         if (isDemoMode) {
             Text("시연 출발 정류장 선택", style = MaterialTheme.typography.titleLarge)
+            DemoStopsMapPanel(
+                stops = DemoPlaces.demoPickupStops,
+                selectedStopId = selected?.id,
+                onSelectStop = onSelectDemoStop,
+            )
             DemoPlaces.demoPickupStops.forEachIndexed { index, stop ->
                 ChoiceCard(
                     title = stop.name,
