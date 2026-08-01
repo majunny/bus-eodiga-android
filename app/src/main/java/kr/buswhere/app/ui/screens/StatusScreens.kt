@@ -63,7 +63,7 @@ fun MatchingScreen(
         FullWidthButton(
             when {
                 isRequestingAssignment -> "다인 DRT 대기열 참여 중…"
-                matchedPassengerCount > 0 -> "다른 승객 대기 중 ($matchedPassengerCount/$demoGroupSize)"
+                matchedPassengerCount > 0 -> "탑승 인원 대기 중 ($matchedPassengerCount/${demoGroupSize}명)"
                 else -> "다인 DRT 대기열 다시 참여"
             },
             onRequestDemoAssignment,
@@ -260,7 +260,7 @@ private fun TripProgressCard(stops: List<Place>, currentStopIndex: Int, tripPhas
     }
 }
 
-/** 운행 완료와 보호자 알림 전송 결과를 표시합니다. */
+/** 운행 완료 안내와 홈 이동 버튼을 표시합니다. */
 @Composable
 fun CompletedScreen(onHome: () -> Unit) {
     Column(
@@ -269,10 +269,6 @@ fun CompletedScreen(onHome: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StatusPanel("✓", "목적지에 도착했습니다", "공동 DRT 운행을 안전하게 완료했습니다.")
-        Text("오늘 이동 서비스는 어떠셨나요?", style = MaterialTheme.typography.titleLarge)
-        listOf("☹  별로예요", "●  보통이에요", "☺  좋아요").forEach { label ->
-            FullWidthButton(label, {})
-        }
         FullWidthButton("홈으로 이동", onHome)
     }
 }

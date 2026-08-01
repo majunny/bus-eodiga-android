@@ -183,9 +183,9 @@ fun Bus어디가App() {
                         demoTripPhase = pooled.demoTripPhase,
                     )
                     realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
-                        "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
+                        "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
                     } else {
-                        "승객 2명이 모였습니다 · 공동 배차 시작"
+                        "탑승 인원 ${pooled.matchedPassengerCount}명 · 공동 배차 시작"
                     }
                     isRequestingAssignment = false
                 }
@@ -233,9 +233,9 @@ fun Bus어디가App() {
                     demoTripPhase = pooled.demoTripPhase,
                 )
                 realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
-                    "다른 승객을 기다리는 중 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}"
+                    "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
                 } else {
-                    "승객 2명이 모였습니다 · 공동 배차 시작"
+                    "탑승 인원 ${pooled.matchedPassengerCount}명 · 공동 배차 시작"
                 }
             } catch (error: Exception) {
                 showNetworkProblem("시연 차량을 배정하지 못했습니다", error, BusScreen.MATCHING)
@@ -350,9 +350,9 @@ fun Bus어디가App() {
                     )
                     realtimeMessage = when {
                         liveStatus == RideStatus.MATCHING && update.matchedPassengerCount > 0 ->
-                            "다른 승객을 기다리는 중 · ${update.matchedPassengerCount}/${update.demoGroupSize}"
+                            "현재 탑승 인원 · ${update.matchedPassengerCount}/${update.demoGroupSize}명"
                         liveStatus == RideStatus.ASSIGNED ->
-                            "승객 2명이 모였습니다 · 같은 차량으로 공동 배차"
+                            "탑승 인원 ${update.matchedPassengerCount}명 · 같은 차량으로 공동 배차"
                         else -> "Firestore 실시간 연결됨 · ${update.status}"
                     }
                     when (liveStatus) {
