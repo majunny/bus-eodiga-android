@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.model.VehicleAssignment
 import kr.buswhere.app.ui.components.FullWidthButton
+import kr.buswhere.app.ui.components.MovingBusRoutePanel
 import kr.buswhere.app.ui.components.StatusPanel
 
 /** 호출 후 차량을 찾는 동안 표시하는 화면입니다. */
@@ -40,7 +41,7 @@ fun MatchingScreen(isCancelling: Boolean, onCancel: () -> Unit, onDemoAssigned: 
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
         )
-        FullWidthButton("시연: 차량 배정 완료", onDemoAssigned)
+        FullWidthButton("시연: 차량 배정 및 출발", onDemoAssigned)
         FullWidthButton(
             text = if (isCancelling) "요청을 취소하고 있습니다…" else "요청 취소",
             onClick = onCancel,
@@ -52,7 +53,7 @@ fun MatchingScreen(isCancelling: Boolean, onCancel: () -> Unit, onDemoAssigned: 
 
 /** 배정 차량 번호, 도착 시간 및 승차 위치를 안내합니다. */
 @Composable
-fun AssignedScreen(assignment: VehicleAssignment) {
+fun AssignedScreen(assignment: VehicleAssignment, request: RideRequest) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -73,8 +74,12 @@ fun AssignedScreen(assignment: VehicleAssignment) {
         }
         InfoCard("◷", "${assignment.etaMinutes}분 뒤 도착", "현재 남은 정류장: ${assignment.remainingStops}개")
         InfoCard("⌖", "승차 위치", assignment.boardingGuide)
-        MapPlaceholder("차량 실시간 위치\n백엔드 WebSocket 연결 예정")
-        FullWidthButton("실시간 위치 지도보기", {})
+        MovingBusRoutePanel(
+            title = "버스가 승차 정류장으로 출발했습니다",
+            startLabel = "차고지",
+            endLabel = request.pickup?.name.orEmpty(),
+            durationMillis = 12_000,
+        )
     }
 }
 
@@ -113,7 +118,12 @@ fun OnBoardScreen(request: RideRequest) {
                 Text("3.2km 남음", color = MaterialTheme.colorScheme.onPrimary)
             }
         }
-        MapPlaceholder("실시간 위치 추적 중")
+        MovingBusRoutePanel(
+            title = "목적지까지 운행 중입니다",
+            startLabel = request.pickup?.name.orEmpty(),
+            endLabel = request.destination?.name.orEmpty(),
+            durationMillis = 15_000,
+        )
         FullWidthButton("긴급 도움 요청", {}, danger = true)
         Text(
             "사고나 긴급 상황 발생 시에만 눌러주세요.",

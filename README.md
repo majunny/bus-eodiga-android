@@ -5,19 +5,15 @@
 ## 현재 시연 흐름
 
 ```text
-홈 → 탑승 방식 → 최근 정류장/지도/GPS → 이동 지원 → 목적지
-    → 호출 확인 → 배차 대기 → 차량 배정 → 탑승 → 도착
+홈 → GPS/시연 모드/정류장 검색 → 이동 지원 → 목적지
+    → 호출 확인 → 배차 대기 → 차량 출발 → 탑승 → 목적지 도착
 ```
 
-GPS는 실제 Android 위치 권한을 요청하고 현재 좌표를 확인합니다. 서울에서 실행해도 GPS 성공 여부를 확인할 수 있지만, 울산 경계 밖이면 호출 위치로 확정하지 않고 최근 정류장 또는 지도 선택을 안내합니다.
+GPS는 실제 Android 위치 권한을 요청하고 현재 좌표를 확인합니다. 서울에서 실행하면 울산 서비스 지역 밖임을 안내하며, 울산 시연 모드 또는 정류장명 검색을 사용합니다. 지도 타일 대신 움직이는 버스 노선 시뮬레이션으로 운행 진행률과 남은 시간을 안정적으로 보여줍니다.
 
-지도는 MapLibre Android SDK를 사용합니다. 개발 시에는 OSM 표준 래스터 지도를 표시하고, 운영 시 Render에서 제공할 OSM 스타일 URL로 교체합니다.
-지도 스타일 주소가 지정되지 않으면 OSM 표준 래스터 타일을 직접 사용합니다. 이는 해커톤 시연용이며 운영 서비스에서는 자체 타일 또는 허가된 제공자를 사용해야 합니다.
-
-프로젝트 또는 사용자 `gradle.properties`에 다음 값을 추가하면 앱 코드를 변경하지 않고 지도 스타일 서버를 바꿀 수 있습니다.
+프로젝트 또는 사용자 `gradle.properties`에 다음 값을 추가하면 앱 코드를 변경하지 않고 API 서버를 바꿀 수 있습니다.
 
 ```properties
-MAP_STYLE_URL=https://your-render-map-service.example.com/styles/bus-eodiga/style.json
 API_BASE_URL=https://bus-eodiga-api.onrender.com/
 ```
 
@@ -25,7 +21,7 @@ API_BASE_URL=https://bus-eodiga-api.onrender.com/
 
 경로 확인은 Render의 `/api/find_nearest`를 사용합니다. 버스 호출과 조회·취소는 Firebase 익명 사용자의 ID Token을 `Authorization: Bearer` 헤더에 담아 `/v1/ride-requests` API로 처리합니다. 호출 생성에는 UUID 기반 `Idempotency-Key`를 사용해 버튼 재시도 시 중복 저장을 방지합니다.
 
-출발 정류장은 앱에 고정하지 않습니다. 울산광역시 정류소 위치 정보 3,616개를 제공하는 Render의 `/v1/bus-stops`와 `/v1/bus-stops/nearby`를 사용합니다. GPS 선택 시 반경 2km의 정류장을 거리순으로 불러와 가장 가까운 정류장을 선택하며, 정류장명 검색과 지도 선택으로 변경할 수 있습니다.
+출발 정류장은 앱에 고정하지 않습니다. 울산광역시 정류소 위치 정보 3,616개를 제공하는 Render의 `/v1/bus-stops`와 `/v1/bus-stops/nearby`를 사용합니다. GPS 선택 시 반경 2km의 정류장을 거리순으로 불러와 가장 가까운 정류장을 선택하며, 정류장명 검색으로 변경할 수 있습니다.
 
 서울 등 울산 서비스 지역 밖에서 발표할 때는 탑승 위치 화면의 `울산 시연 모드`를 사용합니다. 위치 입력만 울산역 좌표로 바꾸며 실제 정류소 API, OSM 도로 경로, Firebase 인증, Render 호출과 Firestore 저장은 그대로 사용합니다. 상단 `도움말`에서 일반 사용 순서와 시연 모드 범위를 확인할 수 있습니다.
 

@@ -41,7 +41,6 @@ import kr.buswhere.app.ui.screens.AssistanceScreen
 import kr.buswhere.app.ui.screens.CompletedScreen
 import kr.buswhere.app.ui.screens.ConfirmationScreen
 import kr.buswhere.app.ui.screens.DestinationScreen
-import kr.buswhere.app.ui.screens.DestinationMapScreen
 import kr.buswhere.app.ui.screens.HomeScreen
 import kr.buswhere.app.ui.screens.HelpScreen
 import kr.buswhere.app.ui.screens.MatchingScreen
@@ -49,7 +48,6 @@ import kr.buswhere.app.ui.screens.OnBoardScreen
 import kr.buswhere.app.ui.screens.PickupScreen
 import kr.buswhere.app.ui.screens.ProblemScreen
 import kr.buswhere.app.ui.screens.RecentStopsScreen
-import kr.buswhere.app.ui.screens.StopMapScreen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -58,10 +56,8 @@ private enum class BusScreen {
     HOME,
     PICKUP,
     RECENT_STOPS,
-    STOP_MAP,
     ASSISTANCE,
     DESTINATION,
-    DESTINATION_MAP,
     CONFIRMATION,
     MATCHING,
     ASSIGNED,
@@ -89,7 +85,6 @@ fun Bus어디가App() {
     var stopQuery by remember { mutableStateOf("") }
     var stopsLoading by remember { mutableStateOf(false) }
     var stopsError by remember { mutableStateOf<String?>(null) }
-    var customDestinationName by remember { mutableStateOf("") }
     var routeStatus by remember { mutableStateOf("아직 OSM 경로를 확인하지 않았습니다.") }
     var isSubmitting by remember { mutableStateOf(false) }
     var isCancelling by remember { mutableStateOf(false) }
@@ -219,27 +214,6 @@ fun Bus어디가App() {
         selectNearestStop(DemoPlaces.ulsanStation.location, demoMode = true)
     }
 
-    fun openStopMap() {
-        screen = BusScreen.STOP_MAP
-        stopsLoading = true
-        coroutineScope.launch {
-            try {
-                val center = request.pickup?.location ?: GeoPointDto(35.5396, 129.3114)
-                availableStops = busStopClient.nearby(
-                    center.latitude,
-                    center.longitude,
-                    radiusM = 20_000.0,
-                    limit = 100,
-                )
-                stopsError = null
-            } catch (error: Exception) {
-                stopsError = error.message ?: "정류장 정보를 불러오지 못했습니다."
-            } finally {
-                stopsLoading = false
-            }
-        }
-    }
-
     LaunchedEffect(screen, stopQuery) {
         if (screen != BusScreen.RECENT_STOPS) return@LaunchedEffect
         if (stopQuery.trim().length < 2) {
@@ -311,10 +285,6 @@ fun Bus어디가App() {
                     onBack = { screen = BusScreen.PICKUP },
                     onNext = if (request.pickup != null) ({ screen = BusScreen.ASSISTANCE }) else null,
                 )
-                BusScreen.STOP_MAP -> BottomNavigationBar(
-                    onBack = { screen = BusScreen.PICKUP },
-                    onNext = if (request.pickup != null) ({ screen = BusScreen.ASSISTANCE }) else null,
-                )
                 BusScreen.ASSISTANCE -> BottomNavigationBar(
                     onBack = { screen = BusScreen.PICKUP },
                     onNext = { screen = BusScreen.DESTINATION },
@@ -322,14 +292,6 @@ fun Bus어디가App() {
                 BusScreen.DESTINATION -> BottomNavigationBar(
                     onBack = { screen = BusScreen.ASSISTANCE },
                     onNext = if (request.destination != null) ({ screen = BusScreen.CONFIRMATION }) else null,
-                )
-                BusScreen.DESTINATION_MAP -> BottomNavigationBar(
-                    onBack = { screen = BusScreen.DESTINATION },
-                    onNext = if (request.destination?.category == "CUSTOM_DESTINATION") {
-                        ({ screen = BusScreen.CONFIRMATION })
-                    } else {
-                        null
-                    },
                 )
                 BusScreen.CONFIRMATION -> BottomNavigationBar(
                     onBack = { screen = BusScreen.DESTINATION },
@@ -359,10 +321,7 @@ fun Bus어디가App() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .then(
-                    if (screen == BusScreen.STOP_MAP || screen == BusScreen.DESTINATION_MAP) Modifier
-                    else Modifier.verticalScroll(rememberScrollState()),
-                ),
+                .verticalScroll(rememberScrollState()),
         ) {
             when (screen) {
                 BusScreen.HOME -> HomeScreen(
@@ -384,7 +343,6 @@ fun Bus어디가App() {
                         stopsError = null
                         screen = BusScreen.RECENT_STOPS
                     },
-                    onOpenMap = ::openStopMap,
                 )
                 BusScreen.RECENT_STOPS -> RecentStopsScreen(
                     stops = availableStops,
@@ -398,16 +356,6 @@ fun Bus어디가App() {
                         gpsMessage = null
                     },
                 )
-                BusScreen.STOP_MAP -> StopMapScreen(
-                    stops = availableStops,
-                    selected = request.pickup,
-                    isLoading = stopsLoading,
-                    errorMessage = stopsError,
-                    onSelect = {
-                        request = request.copy(pickup = it)
-                        gpsMessage = null
-                    },
-                )
                 BusScreen.ASSISTANCE -> AssistanceScreen(
                     selected = request.support,
                     companionCount = request.companionCount,
@@ -416,18 +364,6 @@ fun Bus어디가App() {
                 )
                 BusScreen.DESTINATION -> DestinationScreen(
                     selected = request.destination,
-                    onSelect = { request = request.copy(destination = it) },
-                    onOpenMap = { screen = BusScreen.DESTINATION_MAP },
-                )
-                BusScreen.DESTINATION_MAP -> DestinationMapScreen(
-                    selected = request.destination?.takeIf { it.category == "CUSTOM_DESTINATION" },
-                    destinationName = customDestinationName,
-                    onNameChange = { name ->
-                        customDestinationName = name
-                        request.destination?.takeIf { it.category == "CUSTOM_DESTINATION" }?.let { current ->
-                            request = request.copy(destination = current.copy(name = name.ifBlank { "지도에서 선택한 장소" }))
-                        }
-                    },
                     onSelect = { request = request.copy(destination = it) },
                 )
                 BusScreen.CONFIRMATION -> ConfirmationScreen(
@@ -459,7 +395,7 @@ fun Bus어디가App() {
                         screen = BusScreen.ASSIGNED
                     },
                 )
-                BusScreen.ASSIGNED -> AssignedScreen(assignment)
+                BusScreen.ASSIGNED -> AssignedScreen(assignment, request)
                 BusScreen.ON_BOARD -> OnBoardScreen(request)
                 BusScreen.COMPLETED -> CompletedScreen(::goHome)
                 BusScreen.PROBLEM -> ProblemScreen(

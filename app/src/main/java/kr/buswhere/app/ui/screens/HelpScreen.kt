@@ -22,11 +22,11 @@ fun HelpScreen(onBack: () -> Unit) {
     ) {
         Text("도움말", style = MaterialTheme.typography.headlineMedium)
         Text("BUS어디가는 고령자와 교통약자를 위한 수요응답형 버스 호출 서비스입니다.")
-        HelpStep("1", "탑승 정류장 선택", "GPS 주변 정류장, 정류장명 검색 또는 지도에서 실제 울산 정류장을 선택합니다.")
+        HelpStep("1", "탑승 정류장 선택", "GPS 주변 정류장 또는 정류장명 검색으로 실제 울산 정류장을 선택합니다.")
         HelpStep("2", "이동 지원 선택", "고령자·휠체어·시각·청각 지원과 동반 인원을 선택합니다.")
         HelpStep("3", "목적지와 경로 확인", "목적지를 선택하면 OpenStreetMap 도로 경로와 거리를 확인할 수 있습니다.")
         HelpStep("4", "버스 호출", "Firebase 인증 후 Render API가 호출을 Firestore에 안전하게 저장합니다.")
-        HelpStep("5", "배차 상태 확인", "차량이 배정되면 차량 번호, 도착 시간과 승차 위치를 안내합니다.")
+        HelpStep("5", "배차 상태 확인", "차량이 배정되면 움직이는 버스 시뮬레이션으로 승차 정류장과 목적지까지의 진행 상황을 안내합니다.")
         Column(
             modifier = Modifier
                 .fillMaxWidth()

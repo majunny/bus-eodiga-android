@@ -23,6 +23,7 @@ import kr.buswhere.app.model.Place
 import kr.buswhere.app.model.RideRequest
 import kr.buswhere.app.ui.components.ChoiceCard
 import kr.buswhere.app.ui.components.FullWidthButton
+import kr.buswhere.app.ui.components.MovingBusRoutePanel
 
 /** 앱 첫 화면으로 자주 가는 장소와 새 호출 진입점을 제공합니다. */
 @Composable
@@ -63,7 +64,6 @@ fun PickupScreen(
     onUseGps: () -> Unit,
     onUseDemoMode: () -> Unit,
     onOpenRecent: () -> Unit,
-    onOpenMap: () -> Unit,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -90,12 +90,6 @@ fun PickupScreen(
             symbol = "▣",
             selected = selected?.category == "BUS_STOP" && gpsMessage == null && !isDemoMode,
             onClick = onOpenRecent,
-        )
-        ChoiceCard(
-            title = "지도에서 직접 선택",
-            subtitle = "지도에서 탑승 위치를 찾습니다",
-            symbol = "⌖",
-            onClick = onOpenMap,
         )
         selected?.let {
             Text(
@@ -165,7 +159,6 @@ fun AssistanceScreen(
 fun DestinationScreen(
     selected: Place?,
     onSelect: (Place) -> Unit,
-    onOpenMap: () -> Unit,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -187,13 +180,6 @@ fun DestinationScreen(
                 onClick = { onSelect(place) },
             )
         }
-        ChoiceCard(
-            title = "새로운 목적지 직접 선택",
-            subtitle = "장소 이름을 입력하고 지도에서 위치를 선택합니다",
-            symbol = "⌖",
-            selected = selected?.category == "CUSTOM_DESTINATION",
-            onClick = onOpenMap,
-        )
     }
 }
 
@@ -253,7 +239,12 @@ fun ConfirmationScreen(
             onClick = onSubmit,
             enabled = !isSubmitting,
         )
-        MapPlaceholder("선택 경로 미리보기\n${routeStatus}")
+        MovingBusRoutePanel(
+            title = "예상 운행 시뮬레이션",
+            startLabel = request.pickup?.name.orEmpty(),
+            endLabel = request.destination?.name.orEmpty(),
+            durationMillis = 8_000,
+        )
     }
 }
 
@@ -262,21 +253,6 @@ private fun SummaryRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, modifier = Modifier.weight(2f), fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun MapPlaceholder(label: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(190.dp)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f), RoundedCornerShape(16.dp)),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("⌖", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
-        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

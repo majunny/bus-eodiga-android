@@ -16,10 +16,6 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        val mapStyleUrl = providers.gradleProperty("MAP_STYLE_URL")
-            .orElse("")
-            .get()
-        buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
         val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
             .orElse("https://bus-eodiga-api.onrender.com/")
             .get()
@@ -60,7 +56,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.maplibre.android)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
     implementation(platform(libs.firebase.bom))
