@@ -64,6 +64,7 @@ fun MatchingScreen(
         FullWidthButton(
             when {
                 isRequestingAssignment -> "다인 DRT 대기열 참여 중…"
+                matchedPassengerCount >= demoGroupSize -> "다른 휴대폰 호출 대기 중 (총 ${matchedPassengerCount}명)"
                 matchedPassengerCount > 0 -> "탑승 인원 대기 중 ($matchedPassengerCount/${demoGroupSize}명)"
                 else -> "다인 DRT 대기열 다시 참여"
             },

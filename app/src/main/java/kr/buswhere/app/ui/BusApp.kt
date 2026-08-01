@@ -184,10 +184,12 @@ fun Bus어디가App() {
                         demoCurrentStopIndex = pooled.demoCurrentStopIndex,
                         demoTripPhase = pooled.demoTripPhase,
                     )
-                    realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
-                        "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
-                    } else {
+                    realtimeMessage = if (pooled.toRideStatus() == RideStatus.ASSIGNED) {
                         "탑승 인원 ${pooled.matchedPassengerCount}명 · 공동 배차 시작"
+                    } else if (pooled.matchedPassengerCount >= pooled.demoGroupSize) {
+                        "현재 ${pooled.matchedPassengerCount}명 · 다른 휴대폰 호출 대기 중"
+                    } else {
+                        "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
                     }
                     isRequestingAssignment = false
                 }
@@ -234,10 +236,12 @@ fun Bus어디가App() {
                     demoCurrentStopIndex = pooled.demoCurrentStopIndex,
                     demoTripPhase = pooled.demoTripPhase,
                 )
-                realtimeMessage = if (pooled.matchedPassengerCount < pooled.demoGroupSize) {
-                    "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
-                } else {
+                realtimeMessage = if (pooled.toRideStatus() == RideStatus.ASSIGNED) {
                     "탑승 인원 ${pooled.matchedPassengerCount}명 · 공동 배차 시작"
+                } else if (pooled.matchedPassengerCount >= pooled.demoGroupSize) {
+                    "현재 ${pooled.matchedPassengerCount}명 · 다른 휴대폰 호출 대기 중"
+                } else {
+                    "현재 탑승 인원 · ${pooled.matchedPassengerCount}/${pooled.demoGroupSize}명"
                 }
             } catch (error: Exception) {
                 showNetworkProblem("시연 차량을 배정하지 못했습니다", error, BusScreen.MATCHING)
