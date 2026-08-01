@@ -25,6 +25,42 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RenderBackendInstrumentedTest {
     @Test
+    fun companionsCountTowardLiveDeparture() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val companionApp = FirebaseApp.getApps(context).firstOrNull { it.name == "drt-companion-phone" }
+            ?: FirebaseApp.initializeApp(
+                context,
+                requireNotNull(FirebaseOptions.fromResource(context)),
+                "drt-companion-phone",
+            )
+        val familyClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance()))
+        val soloClient = RideRequestClient(session = FirebaseSession(FirebaseAuth.getInstance(companionApp)))
+        val familyRequest = RideRequest(
+            pickup = DemoPlaces.demoPickupStops[0],
+            destination = DemoPlaces.destinations[0],
+            companionCount = 1,
+        )
+        val soloRequest = RideRequest(
+            pickup = DemoPlaces.demoPickupStops[2],
+            destination = DemoPlaces.destinations[2],
+        )
+
+        val familyCreated = familyClient.create(familyRequest, "drt-family-${UUID.randomUUID()}")
+        val familyWaiting = familyClient.assignDemo(familyCreated.requestId)
+        assertEquals("WAITING", familyWaiting.status)
+        assertEquals(2, familyWaiting.matchedPassengerCount)
+
+        val soloCreated = soloClient.create(soloRequest, "drt-solo-${UUID.randomUUID()}")
+        val assigned = soloClient.assignDemo(soloCreated.requestId)
+        val refreshedFamily = familyClient.get(familyCreated.requestId)
+        assertEquals("ASSIGNED", assigned.status)
+        assertTrue(refreshedFamily.status in setOf("ASSIGNED", "PICKED_UP"))
+        assertEquals(3, assigned.matchedPassengerCount)
+        assertEquals(4, assigned.demoRouteStops.size)
+        assertEquals(assigned.demoTripId, refreshedFamily.demoTripId)
+    }
+
+    @Test
     fun searchRealUlsanDestinationPlaces() = runBlocking {
         val results = PlaceSearchClient().search("울산대학교", limit = 5)
 
