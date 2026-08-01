@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import java.util.UUID
 import kr.buswhere.app.data.BusStopClient
 import kr.buswhere.app.data.FirebaseSession
+import kr.buswhere.app.data.PlaceSearchClient
 import kr.buswhere.app.data.RideRequestClient
 import kr.buswhere.app.model.DemoPlaces
 import kr.buswhere.app.model.MobilitySupport
@@ -23,6 +24,16 @@ import org.junit.runner.RunWith
 /** 실제 기기에서 Firebase Authentication과 Render API의 생성·조회·취소를 검증합니다. */
 @RunWith(AndroidJUnit4::class)
 class RenderBackendInstrumentedTest {
+    @Test
+    fun searchRealUlsanDestinationPlaces() = runBlocking {
+        val results = PlaceSearchClient().search("울산대학교", limit = 5)
+
+        assertTrue(results.isNotEmpty())
+        assertTrue(results.all { it.location.latitude in 35.30..35.80 })
+        assertTrue(results.all { it.location.longitude in 129.00..129.50 })
+        assertTrue(results.any { "울산대학교" in it.name })
+    }
+
     @Test
     fun searchAndFindNearbyRealBusStops() = runBlocking {
         val client = BusStopClient()
